@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+:root {
+  font-family: "DM Sans", sans-serif;
+  color: #39251f;
+  background: #fff8ef;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-optical-sizing: auto;
+  scroll-behavior: smooth;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+button, input, textarea, select { font: inherit; }
+button { cursor: pointer; }
+a { color: inherit; }
+
+.font-display { font-family: "Playfair Display", Georgia, serif; }
+.font-script { font-family: "Great Vibes", cursive; }
+.section-shell { width: min(1120px, calc(100% - 48px)); margin-inline: auto; }
+.paper-texture {
+  background-color: #fff8ef;
+  background-image: radial-gradient(rgba(128, 0, 32, .045) .65px, transparent .65px);
+  background-size: 7px 7px;
+}
+.ornament-line { display: flex; align-items: center; justify-content: center; gap: 14px; color: #c5a15b; }
+.ornament-line::before, .ornament-line::after { content: ""; height: 1px; width: 52px; background: #c5a15b; }
+.floral-frame { box-shadow: inset 0 0 0 1px #c5a15b, inset 0 0 0 5px #fff8ef, inset 0 0 0 6px rgba(197,161,91,.42); }
+.focus-ring:focus-visible { outline: 2px solid #800020; outline-offset: 3px; }
+
+@media (max-width: 640px) {
+  .section-shell { width: min(100% - 32px, 1120px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
