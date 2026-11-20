@@ -30,17 +30,17 @@ export default function Hero() {
           <div className="mb-7 flex items-center justify-center gap-3 text-[10px] font-semibold uppercase tracking-[.32em] text-[#73752d] sm:justify-start">
             <span className="h-px w-9 bg-[#c5a15b]" /> WEDDING RECEPTION <span className="h-px w-9 bg-[#c5a15b]" />
           </div>
-          <p className="font-script -mb-1 text-5xl leading-none text-[#800020] sm:text-6xl">Nate &amp; Kym</p>
-          <h1 className="font-display text-[2.6rem] leading-[1.18] text-[#570b19] sm:text-6xl lg:text-[4.25rem]">A day made<br />for <span className="font-script text-[3.6rem] text-[#800020] sm:text-7xl">forever</span></h1>
+          <p className="font-script -mb-1 text-[1.875rem] leading-tight text-[#800020] sm:text-5xl lg:text-[3.25rem]">Nathaniel &amp; Kimberly</p>
+          <h1 className="font-display text-2xl leading-[1.18] text-[#570b19] sm:text-4xl">A day made<br />for <span className="font-script text-[1.9rem] text-[#800020] sm:text-5xl">forever</span></h1>
           <div className="ornament-line mx-auto mt-5 w-fit text-xl sm:mx-0">❧</div>
-          <p className="mt-5 max-w-lg text-base leading-7 text-[#76665c] sm:text-lg">Together with their families, Nathaniel and Kimberly invite you to celebrate their marriage at their wedding reception.</p>
+          <p className="mt-5 max-w-lg text-base leading-7 text-[#76665c] sm:text-lg">Together with their families, Nate and Kym invite you to celebrate their marriage at their wedding reception.</p>
           <div className="mt-7 flex items-center justify-center gap-2 text-sm text-[#570b19] sm:justify-start"><MapPin className="shrink-0 text-[#c5a15b]" size={16} /> Casamara Beach Resort · Baybay, Roxas City, Capiz, Philippines</div>
           <div className="mt-8 flex flex-wrap items-end justify-center gap-x-6 gap-y-3 sm:justify-start">
             <div className="font-display text-4xl text-[#570b19]">09 <span className="text-2xl text-[#c5a15b]">·</span> DEC <span className="text-2xl text-[#c5a15b]">·</span> 2026</div>
             <div className="pb-1 text-xs uppercase tracking-[.2em] text-[#76665c]">Wednesday · 10:30 AM–3:00 PM</div>
           </div>
           <p className="mt-3 text-sm text-[#76665c]">Please arrive a little early so we can begin together.</p>
-          <p className="mt-4 font-semibold text-sm text-[#570b19]">Kindly RSVP by November 30, 2026.</p>
+          <p className="mt-4 font-semibold text-sm text-[#570b19]">Kindly RSVP on or before November 30, 2026.</p>
           <div className="mt-7 flex justify-center gap-2.5 sm:justify-start sm:gap-3" aria-label="Countdown to the wedding reception">
             {Object.entries(countdown).map(([label, value]) => <div key={label} className="min-w-[59px] border-l border-[#c5a15b]/60 pl-2.5 sm:min-w-[70px] sm:pl-3">
               <span className="font-display text-xl text-[#570b19] sm:text-2xl">{String(value).padStart(2, '0')}</span>

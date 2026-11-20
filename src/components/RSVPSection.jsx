@@ -12,7 +12,7 @@ export default function RSVPSection() {
     <section id="rsvp" className="bg-[#f5e8d9] py-24 sm:py-28">
       <div className="section-shell">
         <SectionHeading
-          eyebrow="KINDLY RSVP BY NOVEMBER 30, 2026"
+          eyebrow="KINDLY RSVP ON OR BEFORE NOVEMBER 30, 2026"
           title="We’ve saved you a seat"
           description={submission ? null : 'Kindly confirm your attendance by November 30, 2026.'}
         />

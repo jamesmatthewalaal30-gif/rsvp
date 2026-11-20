@@ -154,6 +154,22 @@ test('name lookup returns matching invitations without exposing invitation codes
   assert.equal('invitation_code' in result.data.invitations[0], false);
 });
 
+test('admin dashboard identifies the invitation with invalid guest data', () => {
+  const service = createService();
+  service.addInvitation('WED-BAD', 'Tony Stark', 'private-bad', ['Tony Stark', 'Pepper Potts', 'Rhodey'], 3);
+
+  const result = service.post({
+    action: 'admin_dashboard',
+    admin_password: 'a sufficiently long admin password',
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.code, 'seat_mismatch');
+  assert.match(result.error, /WED-BAD/);
+  assert.match(result.error, /allocated_seats=3/);
+  assert.match(result.error, /Companion: 2/);
+});
+
 test('RSVP records one guest and an optional companion once, and updates the party response', () => {
   const service = createService();
   service.addInvitation('WED-001', 'Tony Stark', 'private-001');

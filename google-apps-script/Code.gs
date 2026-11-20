@@ -295,7 +295,7 @@ function adminDashboard_() {
     },
     invitations: invitations.map(function (invitation) {
       const invitationGuests = guests.filter(function (guest) { return guest.invitation_id === invitation.invitation_id; });
-      validateSeatCount_(invitation, invitationGuests);
+      validateSeatCount_(invitation, invitationGuests, true);
       return {
         invitation_id: invitation.invitation_id,
         primary_guest_name: invitation.primary_guest_name,
@@ -405,15 +405,27 @@ function validateGuestNames_(input, primary) {
   return names;
 }
 
-function validateSeatCount_(invitation, guests) {
+function validateSeatCount_(invitation, guests, includeDetails) {
   const seats = Number(invitation.allocated_seats);
   const primaryCount = guests.filter(function (guest) { return guest.guest_role === 'Primary Guest'; }).length;
   const companionCount = guests.filter(function (guest) { return guest.guest_role === 'Companion'; }).length;
   const names = guests.map(function (guest) { return guest.guest_name.toLowerCase(); });
+  const duplicateNames = new Set(names).size !== names.length;
   if (!Number.isInteger(seats) || seats < 1 || seats > 2 || guests.length < 1 || guests.length > seats ||
-      primaryCount !== 1 || companionCount > 1 || primaryCount + companionCount !== guests.length ||
-      new Set(names).size !== names.length) {
-    throw apiError_('seat_mismatch', 'This invitation has an incorrect seat allocation or guest list. Please contact the wedding organizers.');
+      primaryCount !== 1 || companionCount > 1 || primaryCount + companionCount !== guests.length || duplicateNames) {
+    let message = 'This invitation has an incorrect seat allocation or guest list. Please contact the wedding organizers.';
+    if (includeDetails) {
+      const roles = {};
+      guests.forEach(function (guest) {
+        const role = guest.guest_role || '(blank)';
+        roles[role] = (roles[role] || 0) + 1;
+      });
+      const roleSummary = Object.keys(roles).map(function (role) { return role + ': ' + roles[role]; }).join(', ') || 'none';
+      message = 'Invitation ' + invitation.invitation_id + ' has invalid data (allocated_seats=' +
+        invitation.allocated_seats + ', guest rows=' + guests.length + ', roles=' + roleSummary +
+        ', duplicate names=' + duplicateNames + '). Check its rows in INVITATIONS and INVITED_GUESTS.';
+    }
+    throw apiError_('seat_mismatch', message);
   }
 }
 
