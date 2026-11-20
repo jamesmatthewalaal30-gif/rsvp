@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Menu, X } from 'lucide-react';
 
 const links = [
-  ['Our Day', '#our-day'],
   ['The Venue', '#venue'],
   ['Attire', '#attire'],
   ['RSVP', '#rsvp'],

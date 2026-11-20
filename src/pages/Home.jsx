@@ -6,7 +6,6 @@ import Hero from '../components/Hero.jsx';
 import Navbar from '../components/Navbar.jsx';
 import RSVPSection from '../components/RSVPSection.jsx';
 import Venue from '../components/Venue.jsx';
-import WeddingDetails from '../components/WeddingDetails.jsx';
 
 export default function Home() {
   const location = useLocation();
@@ -17,7 +16,6 @@ export default function Home() {
     <Navbar />
     <main>
       <Hero />
-      <WeddingDetails />
       <Venue />
       <AttireGuide />
       <RSVPSection />
