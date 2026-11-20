@@ -352,6 +352,48 @@ test('the deadline includes 11:59 PM Philippine time on November 30, 2026', () =
   assert.equal(service.isRsvpOpen(new Date('2026-12-01T00:00:00.000+08:00')), false);
 });
 
+test('invitation codes can be reused across multiple invitation IDs', () => {
+  const service = createService();
+  const admin = { admin_password: 'a sufficiently long admin password' };
+  const createInvitation = (name, code) => service.post({
+    ...admin,
+    action: 'admin_create_invitation',
+    primary_guest_name: name,
+    invitation_code: code,
+    guest_names: [name],
+  });
+  const first = createInvitation('Tony Stark', 'shared-code');
+  const second = createInvitation('Steve Rogers', 'private-002');
+  const edited = service.post({
+    ...admin,
+    action: 'admin_edit_invitation',
+    invitation_id: second.data.invitation_id,
+    primary_guest_name: 'Steve Rogers',
+    guest_type: 'Family',
+    invitation_code: 'shared-code',
+  });
+  const third = createInvitation('Bruce Wayne', 'shared-code');
+
+  assert.equal(first.ok, true);
+  assert.equal(second.ok, true);
+  assert.equal(edited.ok, true);
+  assert.equal(third.ok, true);
+  assert.notEqual(first.data.invitation_id, second.data.invitation_id);
+  assert.notEqual(first.data.invitation_id, third.data.invitation_id);
+
+  const dashboard = service.post({ ...admin, action: 'admin_dashboard' });
+  assert.equal(dashboard.ok, true);
+  assert.equal(dashboard.data.invitations.length, 3);
+  for (const invitation of [first, second, third]) {
+    const verified = service.post({
+      action: 'verify_invitation',
+      invitation_id: invitation.data.invitation_id,
+      invitation_code: 'shared-code',
+    });
+    assert.equal(verified.ok, true);
+  }
+});
+
 test('invitation creation allows one named guest and admin actions require authentication', () => {
   const service = createService();
   const headers = { admin_password: 'a sufficiently long admin password' };

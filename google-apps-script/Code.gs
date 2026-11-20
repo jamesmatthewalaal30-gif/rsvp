@@ -327,9 +327,6 @@ function adminCreateInvitation_(payload) {
     const code = cleanRequired_(payload.invitation_code, 100, 'Invitation code');
     const guestType = cleanText_(payload.guest_type, 80);
     const names = validateGuestNames_(payload.guest_names, primary);
-    if (records_('INVITATIONS').some(function (row) { return String(row.invitation_code).toLowerCase() === code.toLowerCase(); })) {
-      throw apiError_('duplicate_code', 'That invitation code is already in use.');
-    }
     const invitationId = 'WED-' + Utilities.getUuid().slice(0, 8).toUpperCase();
     sheet_('INVITATIONS').appendRow([invitationId, primary, code, guestType, 2, new Date().toISOString()]);
     names.forEach(function (name) {
@@ -360,9 +357,6 @@ function adminEditInvitation_(payload) {
     if (guests.some(function (guest) {
       return guest.guest_id !== primaryGuests[0].guest_id && guest.guest_name.toLowerCase() === primary.toLowerCase();
     })) throw apiError_('duplicate_guest', 'The primary guest name must be unique within this invitation.');
-    if (records_('INVITATIONS').some(function (row) {
-      return row.invitation_id !== invitation.invitation_id && String(row.invitation_code).toLowerCase() === code.toLowerCase();
-    })) throw apiError_('duplicate_code', 'That invitation code is already in use.');
     const sheet = sheet_('INVITATIONS');
     sheet.getRange(invitation._row, 2, 1, 4).setValues([[primary, code, guestType, seats]]);
     const primaryGuest = primaryGuests[0];
@@ -496,14 +490,12 @@ function findInvitation_(invitationId) {
 
 function validateInvitationRecords_(invitations) {
   const ids = {};
-  const codes = {};
   invitations.forEach(function (invitation) {
     const id = String(invitation.invitation_id || '');
-    const code = String(invitation.invitation_code || '').toLowerCase();
+    const code = String(invitation.invitation_code || '');
     if (!id || !code) throw apiError_('invalid_invitation', 'An invitation is missing its ID or code. Please contact the wedding organizers.');
-    if (ids[id] || codes[code]) throw apiError_('duplicate_invitation', 'Duplicate invitation IDs or codes need to be resolved by the wedding organizers.');
+    if (ids[id]) throw apiError_('duplicate_invitation', 'Duplicate invitation IDs need to be resolved by the wedding organizers.');
     ids[id] = true;
-    codes[code] = true;
   });
 }
 
