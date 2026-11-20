@@ -29,7 +29,7 @@ The site can be viewed without a configured API, but lookup and RSVP actions wil
 - `GET ?action=lookup&q=...` returns up to ten matching invitation summaries, matching primary or accompanying guest names case-insensitively.
 - `POST action=verify_invitation` checks the invitation code before returning the invitation's guest list and any previously registered companion.
 - `POST action=submit_rsvp` requires a valid code, one invitation-level attendance status, a mobile number, and a companion name when a companion is included. It inserts or updates one response per person, counts companions toward the 60-person cap, and rejects submissions after the fixed Philippine-time deadline.
-- Admin actions (`admin_dashboard`, `admin_create_invitation`, `admin_edit_invitation`, `admin_remove_guest`, and `admin_delete_invitation`) are checked against the server-side `ADMIN_PASSWORD` property. They are never exposed via GET.
+- Admin actions (`admin_dashboard`, `admin_create_invitation`, `admin_edit_invitation`, `admin_set_companion`, `admin_remove_guest`, and `admin_delete_invitation`) are checked against the server-side `ADMIN_PASSWORD` property. Admins can add or rename the single companion on an invitation; this does not confirm attendance, which the guest must choose through their RSVP. These actions are never exposed via GET.
 - Admin dashboard responses include the mobile number supplied for each invitation; keep the admin password private and only use it over HTTPS.
 
 ## Render deployment

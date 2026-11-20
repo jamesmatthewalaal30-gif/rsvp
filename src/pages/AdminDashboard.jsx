@@ -65,6 +65,11 @@ export default function AdminDashboard() {
     }
   }
 
+  async function setCompanion(payload) {
+    await adminRequest('admin_set_companion', payload, password);
+    await loadDashboard();
+  }
+
   async function deleteInvitation(invitationId) {
     if (!window.confirm('Delete this invitation, its invited guests, and their RSVP responses? This cannot be undone.')) return;
     try {
@@ -151,7 +156,7 @@ export default function AdminDashboard() {
             <input value={invitationQuery} onChange={(event) => setInvitationQuery(event.target.value)} className="focus-ring h-11 w-full border border-[#e4d6c6] pl-10 pr-3 text-sm outline-none" placeholder="Search invitations by guest, type, or ID" />
           </label>
         <div className="mt-5 space-y-3">
-            {filteredInvitations.map((invitation) => <InvitationRow key={invitation.invitation_id} invitation={invitation} onRemove={removeGuest} onEdit={editInvitation} onDelete={deleteInvitation} />)}
+            {filteredInvitations.map((invitation) => <InvitationRow key={invitation.invitation_id} invitation={invitation} onRemove={removeGuest} onEdit={editInvitation} onSetCompanion={setCompanion} onDelete={deleteInvitation} />)}
             {!filteredInvitations.length && <p className="py-8 text-center text-sm text-[#76665c]">No invitations match your search.</p>}
         </div>
       </section>
@@ -181,10 +186,14 @@ function Stat({ label, value }) {
   return <div className="border border-[#c5a15b]/35 bg-white p-4"><p className="text-[10px] uppercase tracking-[.15em] text-[#73752d]">{label}</p><p className="font-display mt-2 text-3xl text-[#570b19]">{value}</p></div>;
 }
 
-function InvitationRow({ invitation, onRemove, onEdit, onDelete }) {
+function InvitationRow({ invitation, onRemove, onEdit, onSetCompanion, onDelete }) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [companionEditing, setCompanionEditing] = useState(false);
+  const [companionSaving, setCompanionSaving] = useState(false);
+  const [companionError, setCompanionError] = useState('');
+  const companion = invitation.guests.find((guest) => guest.guest_role === 'Companion');
 
   async function submitEdit(event) {
     event.preventDefault();
@@ -206,6 +215,24 @@ function InvitationRow({ invitation, onRemove, onEdit, onDelete }) {
     }
   }
 
+  async function submitCompanion(event) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setCompanionSaving(true);
+    setCompanionError('');
+    try {
+      await onSetCompanion({
+        invitation_id: invitation.invitation_id,
+        companion_name: form.get('companion_name'),
+      });
+      setCompanionEditing(false);
+    } catch (requestError) {
+      setCompanionError(requestError.message);
+    } finally {
+      setCompanionSaving(false);
+    }
+  }
+
   return <details className="group border border-[#e4d6c6]">
     <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 p-4">
       <div><p className="font-display text-lg text-[#570b19]">{invitation.primary_guest_name}</p><p className="mt-1 text-xs text-[#76665c]">{invitation.invitation_id} · {invitation.guest_type} · Up to 2 seats</p></div>
@@ -213,6 +240,7 @@ function InvitationRow({ invitation, onRemove, onEdit, onDelete }) {
     </summary>
     <div className="flex flex-wrap gap-2 border-t border-[#e4d6c6] px-4 py-3">
       <button onClick={() => setEditing(!editing)} className="border border-[#e4d6c6] px-3 py-2 text-[10px] font-semibold tracking-[.1em] text-[#570b19]">EDIT INVITATION</button>
+      <button onClick={() => { setCompanionEditing(!companionEditing); setCompanionError(''); }} className="border border-[#e4d6c6] px-3 py-2 text-[10px] font-semibold tracking-[.1em] text-[#570b19]">{companion ? 'EDIT COMPANION' : 'ADD COMPANION'}</button>
       <button onClick={() => onDelete(invitation.invitation_id)} className="ml-auto inline-flex items-center gap-1 border border-[#800020]/30 px-3 py-2 text-[10px] font-semibold tracking-[.1em] text-[#800020]"><Trash2 size={13} /> DELETE</button>
     </div>
     {editing && <form onSubmit={submitEdit} className="grid gap-3 border-t border-[#e4d6c6] bg-[#fff8ef] p-4 sm:grid-cols-2">
@@ -220,6 +248,12 @@ function InvitationRow({ invitation, onRemove, onEdit, onDelete }) {
       <label className="text-xs font-semibold">Guest type<input name="guest_type" defaultValue={invitation.guest_type} className="focus-ring mt-1 h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal" /></label>
       <label className="text-xs font-semibold">Invitation code<input name="invitation_code" required defaultValue={invitation.invitation_code} className="focus-ring mt-1 h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal" /></label>
       <div className="flex justify-end gap-2 sm:col-span-2"><button type="button" onClick={() => setEditing(false)} className="px-3 py-2 text-xs">CANCEL</button><button disabled={saving} className="bg-[#800020] px-4 py-2 text-xs font-semibold text-white">{saving ? 'SAVING…' : 'SAVE CHANGES'}</button></div>
+    </form>}
+    {companionEditing && <form onSubmit={submitCompanion} className="grid gap-3 border-t border-[#e4d6c6] bg-[#fff8ef] p-4 sm:grid-cols-2">
+      <label className="text-xs font-semibold sm:col-span-2">Companion’s full name<input name="companion_name" required maxLength={120} defaultValue={companion?.guest_name || ''} className="focus-ring mt-1 h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal" /></label>
+      <p className="text-xs leading-5 text-[#76665c] sm:col-span-2">This records the companion’s name only. The guest must accept or decline bringing them in their RSVP.</p>
+      {companionError && <p role="alert" className="text-sm text-[#800020] sm:col-span-2">{companionError}</p>}
+      <div className="flex justify-end gap-2 sm:col-span-2"><button type="button" onClick={() => setCompanionEditing(false)} className="px-3 py-2 text-xs">CANCEL</button><button disabled={companionSaving} className="bg-[#800020] px-4 py-2 text-xs font-semibold text-white disabled:opacity-60">{companionSaving ? 'SAVING…' : 'SAVE COMPANION'}</button></div>
     </form>}
     {error && <p role="alert" className="border-t border-[#e4d6c6] px-4 py-3 text-sm text-[#800020]">{error}</p>}
     <div className="divide-y divide-[#eee5db] border-t border-[#e4d6c6] px-4">

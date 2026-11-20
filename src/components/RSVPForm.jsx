@@ -38,7 +38,15 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
       const companion = details.guests.find((guest) => guest.guest_role === 'Companion');
       setVerified(details);
       setAttendance(primary?.rsvp_status || '');
-      setBringCompanion(Boolean(companion && primary?.rsvp_status === 'attending'));
+      setBringCompanion(companion
+        ? companion.rsvp_status === 'attending'
+          ? true
+          : companion.rsvp_status === 'declined'
+            ? false
+            : null
+        : primary?.rsvp_status === 'attending'
+          ? false
+          : null);
       setCompanionName(companion?.guest_name || '');
       setContact(details.contact_number || '');
     } catch (requestError) {

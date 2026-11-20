@@ -85,6 +85,10 @@ function doPost(event) {
         requireAdmin_(payload.admin_password);
         data = adminRemoveGuest_(payload);
         break;
+      case 'admin_set_companion':
+        requireAdmin_(payload.admin_password);
+        data = adminSetCompanion_(payload);
+        break;
       case 'admin_delete_invitation':
         requireAdmin_(payload.admin_password);
         data = adminDeleteInvitation_(payload);
@@ -380,6 +384,40 @@ function adminRemoveGuest_(payload) {
     deleteMatchingRows_('RSVP_RESPONSES', 'guest_id', guest.guest_id);
     sheet_('INVITED_GUESTS').deleteRow(guest._row);
     return { invitation_id: invitation.invitation_id };
+  });
+}
+
+function adminSetCompanion_(payload) {
+  return withLock_(function () {
+    const invitation = findInvitation_(payload.invitation_id);
+    if (!invitation) throw apiError_('not_found', 'Invitation not found.');
+    const guests = getInvitationGuests_(invitation.invitation_id);
+    validateSeatCount_(invitation, guests);
+    const companion = guests.filter(function (guest) { return guest.guest_role === 'Companion'; })[0];
+    const name = cleanRequired_(payload.companion_name, 120, 'Companion full name');
+    if (guests.some(function (guest) {
+      return guest.guest_id !== (companion ? companion.guest_id : '') &&
+        guest.guest_name.toLowerCase() === name.toLowerCase();
+    })) {
+      throw apiError_('duplicate_guest', 'The companion name must be different from the invited guest name.');
+    }
+
+    if (companion) {
+      sheet_('INVITED_GUESTS').getRange(companion._row, 3).setValue(name);
+      updateResponseGuestNames_(companion.guest_id, name);
+      return { guest_id: companion.guest_id, guest_name: name, created: false };
+    }
+
+    const guestId = Utilities.getUuid();
+    sheet_('INVITATIONS').getRange(invitation._row, 5).setValue(2);
+    sheet_('INVITED_GUESTS').appendRow([
+      guestId,
+      invitation.invitation_id,
+      name,
+      'Companion',
+      '',
+    ]);
+    return { guest_id: guestId, guest_name: name, created: true };
   });
 }
 

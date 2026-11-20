@@ -247,6 +247,58 @@ test('RSVP requires a mobile number and companion name and rejects duplicate nam
   assert.equal(service.sheets.get('RSVP_RESPONSES').rows.length, 1);
 });
 
+test('admin can add or rename one companion without confirming their RSVP', () => {
+  const service = createService();
+  service.addInvitation('WED-001', 'Tony Stark', 'private-001', ['Tony Stark'], 1);
+  const admin = { admin_password: 'a sufficiently long admin password' };
+  const setCompanion = (companionName) => service.post({
+    ...admin,
+    action: 'admin_set_companion',
+    invitation_id: 'WED-001',
+    companion_name: companionName,
+  });
+
+  const added = setCompanion('Pepper Potts');
+  assert.equal(added.ok, true);
+  assert.equal(added.data.created, true);
+  assert.equal(service.sheets.get('INVITED_GUESTS').rows.length, 3);
+  assert.equal(service.sheets.get('RSVP_RESPONSES').rows.length, 1);
+  assert.equal(service.sheets.get('INVITATIONS').rows[1][4], 2);
+
+  const verified = service.post({
+    action: 'verify_invitation',
+    invitation_id: 'WED-001',
+    invitation_code: 'private-001',
+  });
+  assert.equal(verified.data.invitation.guests[1].rsvp_status, '');
+
+  const renamed = setCompanion('Pepper Parker');
+  assert.equal(renamed.ok, true);
+  assert.equal(renamed.data.created, false);
+  assert.equal(renamed.data.guest_id, added.data.guest_id);
+  assert.equal(service.sheets.get('INVITED_GUESTS').rows.length, 3);
+  assert.equal(service.sheets.get('RSVP_RESPONSES').rows.length, 1);
+
+  const accepted = service.post({
+    action: 'submit_rsvp',
+    invitation_id: 'WED-001',
+    invitation_code: 'private-001',
+    attendance_status: 'attending',
+    bring_companion: true,
+    companion_name: 'Pepper Parker',
+    contact_number: '+639171234567',
+  });
+  assert.equal(accepted.ok, true);
+
+  const edited = setCompanion('Pepper Stark');
+  assert.equal(edited.ok, true);
+  assert.equal(edited.data.created, false);
+  assert.equal(service.sheets.get('INVITED_GUESTS').rows.length, 3);
+  assert.equal(service.sheets.get('RSVP_RESPONSES').rows.length, 3);
+  assert.equal(service.sheets.get('RSVP_RESPONSES').rows[2][3], 'Pepper Stark');
+  assert.equal(service.sheets.get('RSVP_RESPONSES').rows[2][4], 'attending');
+});
+
 test('the 60-person capacity includes companions and released seats can be reused', () => {
   const service = createService();
   for (let index = 1; index <= 31; index += 1) {
