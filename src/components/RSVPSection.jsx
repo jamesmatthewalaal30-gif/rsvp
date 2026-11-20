@@ -23,7 +23,7 @@ export default function RSVPSection() {
           <article className="border border-[#c5a15b]/40 bg-white/70 p-6 text-center">
             <UsersRound className="mx-auto mb-4 text-[#800020]" size={21} strokeWidth={1.5} />
             <h3 className="font-display text-xl text-[#570b19]">Can I bring someone with me?</h3>
-            <p className="mt-3 text-sm leading-6 text-[#76665c]">Yes, you may bring one companion. Your invitation covers a maximum of two people, including you.</p>
+            <p className="mt-3 text-sm leading-6 text-[#76665c]">Yes, you may bring one guest. Your invitation covers a maximum of two people, including you.</p>
           </article>
           <article className="border border-[#c5a15b]/40 bg-white/70 p-6 text-center">
             <LockKeyhole className="mx-auto mb-4 text-[#800020]" size={21} strokeWidth={1.5} />

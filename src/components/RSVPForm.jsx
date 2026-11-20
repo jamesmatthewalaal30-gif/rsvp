@@ -7,6 +7,7 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
   const [code, setCode] = useState('');
   const [attendance, setAttendance] = useState('');
   const [bringCompanion, setBringCompanion] = useState(null);
+  const [companionAttendance, setCompanionAttendance] = useState('');
   const [companionName, setCompanionName] = useState('');
   const [editingCompanionName, setEditingCompanionName] = useState(false);
   const [contact, setContact] = useState('');
@@ -40,15 +41,8 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
       setVerified(details);
       setEditingCompanionName(false);
       setAttendance(primary?.rsvp_status || '');
-      setBringCompanion(companion
-        ? companion.rsvp_status === 'attending'
-          ? true
-          : companion.rsvp_status === 'declined'
-            ? false
-            : null
-        : primary?.rsvp_status === 'attending'
-          ? false
-          : null);
+      setCompanionAttendance(companion?.rsvp_status || '');
+      setBringCompanion(companion ? null : primary?.rsvp_status === 'attending' ? false : null);
       setCompanionName(companion?.guest_name || '');
       setContact(details.contact_number || '');
     } catch (requestError) {
@@ -68,12 +62,21 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
       setError('Please enter one mobile number for this invitation.');
       return;
     }
-    if (attendance === 'attending' && typeof bringCompanion !== 'boolean') {
+    const hasRegisteredCompanion = verified.guests.some((guest) => guest.guest_role === 'Companion');
+    if (hasRegisteredCompanion && !['attending', 'declined'].includes(companionAttendance)) {
+      setError('Please choose Joyfully accepts or Regretfully declines for your guest.');
+      return;
+    }
+    if (!hasRegisteredCompanion && attendance === 'attending' && typeof bringCompanion !== 'boolean') {
       setError('Please choose Yes or No for bringing a companion.');
       return;
     }
-    if (attendance === 'attending' && bringCompanion && !companionName.trim()) {
-      setError('Please enter your companion’s full name.');
+    if (hasRegisteredCompanion && !companionName.trim()) {
+      setError('Please enter your guest’s full name.');
+      return;
+    }
+    if (!hasRegisteredCompanion && attendance === 'attending' && bringCompanion && !companionName.trim()) {
+      setError('Please enter your guest’s full name.');
       return;
     }
     setError('');
@@ -84,12 +87,19 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
     setLoading(true);
     setError('');
     try {
+      const hasRegisteredCompanion = verified.guests.some((guest) => guest.guest_role === 'Companion');
+      const includeCompanion = hasRegisteredCompanion || (attendance === 'attending' && bringCompanion);
       const result = await submitRsvp({
         invitation_id: verified.invitation_id,
         invitation_code: code.trim(),
         attendance_status: attendance,
-        bring_companion: attendance === 'attending' && bringCompanion,
-        companion_name: attendance === 'attending' && bringCompanion ? companionName.trim() : '',
+        bring_companion: includeCompanion,
+        companion_name: includeCompanion ? companionName.trim() : '',
+        companion_attendance_status: hasRegisteredCompanion
+          ? companionAttendance
+          : includeCompanion
+            ? 'attending'
+            : '',
         contact_number: contact.trim(),
       });
       onSuccess({ invitation: verified, responses: result.responses });
@@ -118,13 +128,20 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
     </div>
   </div>;
 
+  const hasRegisteredCompanion = verified.guests.some((guest) => guest.guest_role === 'Companion');
+  const primaryAttending = attendance === 'attending';
+  const companionAttending = hasRegisteredCompanion
+    ? companionAttendance === 'attending'
+    : primaryAttending && bringCompanion === true;
+  const seatsReserved = (primaryAttending ? 1 : 0) + (companionAttending ? 1 : 0);
+
   return <>
     <div className="mx-auto max-w-2xl text-left">
       <button className="focus-ring mb-6 inline-flex items-center gap-2 text-xs font-semibold tracking-[.12em] text-[#800020]" onClick={() => { setVerified(null); onBack(); }}><ArrowLeft size={15} /> BACK TO SEARCH</button>
       <div className="border border-[#c5a15b]/50 bg-white p-6 sm:p-8">
         <p className="text-[10px] font-semibold tracking-[.2em] text-[#73752d]">YOUR INVITATION</p>
         <h3 className="font-display mt-2 text-2xl text-[#570b19]">{verified.primary_guest_name}</h3>
-        <p className="mt-2 text-sm text-[#76665c]">Please submit one RSVP for yourself and your companion, if bringing one.</p>
+        <p className="mt-2 text-sm text-[#76665c]">Please submit one RSVP for yourself and your guest, if bringing one.</p>
         <form onSubmit={handleSubmit} className="mt-7">
           <fieldset>
             <legend className="mb-3 text-xs font-semibold text-[#39251f]">Your response</legend>
@@ -134,10 +151,12 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
                 ['declined', 'Regretfully declines'],
               ].map(([value, label]) => <label key={value} className={`flex cursor-pointer items-center gap-2 border px-3 py-2.5 text-xs transition ${attendance === value ? 'border-[#800020] bg-[#800020]/[.045] text-[#570b19]' : 'border-[#e8d9c8] text-[#76665c]'}`}>
                 <input type="radio" name="attendance" value={value} checked={attendance === value} onChange={() => {
-                  if (value === 'declined') {
-                    setBringCompanion(false);
-                  } else if (attendance === 'declined') {
-                    setBringCompanion(null);
+                  if (!hasRegisteredCompanion) {
+                    if (value === 'declined') {
+                      setBringCompanion(false);
+                    } else if (attendance === 'declined') {
+                      setBringCompanion(null);
+                    }
                   }
                   setAttendance(value);
                 }} className="accent-[#800020]" />
@@ -145,8 +164,8 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
               </label>)}
             </div>
           </fieldset>
-          {attendance === 'attending' && <fieldset className="mt-6">
-            <legend className="mb-3 text-xs font-semibold text-[#39251f]">Will you bring a companion?</legend>
+          {!hasRegisteredCompanion && attendance === 'attending' && <fieldset className="mt-6">
+            <legend className="mb-3 text-xs font-semibold text-[#39251f]">Will you bring one additional guest?</legend>
             <div className="flex gap-3">
               {[['yes', true], ['no', false]].map(([label, value]) => <label key={label} className={`flex cursor-pointer items-center gap-2 border px-4 py-2.5 text-xs transition ${bringCompanion === value ? 'border-[#800020] bg-[#800020]/[.045] text-[#570b19]' : 'border-[#e8d9c8] text-[#76665c]'}`}>
                 <input type="radio" name="bring-companion" checked={bringCompanion === value} onChange={() => setBringCompanion(value)} className="accent-[#800020]" />
@@ -154,19 +173,39 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
               </label>)}
             </div>
           </fieldset>}
-          {attendance === 'attending' && bringCompanion && (verified.guests.some((guest) => guest.guest_role === 'Companion') && !editingCompanionName
-            ? <div className="mt-5">
-              <p className="text-xs font-semibold text-[#39251f]">Companion’s full name</p>
-              <div className="mt-2 flex flex-wrap items-center justify-between gap-3 border border-[#e4d6c6] px-3 py-2.5">
-                <span className="text-sm text-[#39251f]">{companionName}</span>
-                <button type="button" onClick={() => setEditingCompanionName(true)} className="focus-ring text-[10px] font-semibold tracking-[.08em] text-[#800020]">EDIT COMPANION NAME</button>
-              </div>
+          {hasRegisteredCompanion && <>
+            <div className="mt-6">
+              {companionName && !editingCompanionName
+                ? <>
+                  <p className="text-xs font-semibold text-[#39251f]">Guest’s full name</p>
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-3 border border-[#e4d6c6] px-3 py-2.5">
+                    <span className="text-sm text-[#39251f]">{companionName}</span>
+                    <button type="button" onClick={() => setEditingCompanionName(true)} className="focus-ring text-[10px] font-semibold tracking-[.08em] text-[#800020]">EDIT GUEST NAME</button>
+                  </div>
+                </>
+                : <>
+                  <label className="block text-xs font-semibold text-[#39251f]" htmlFor="companion-name">Guest’s full name</label>
+                  <input id="companion-name" value={companionName} onChange={(event) => setCompanionName(event.target.value)} required maxLength={120} autoComplete="name" className="focus-ring mt-2 h-11 w-full border border-[#e4d6c6] px-3 text-sm font-normal outline-none" />
+                  {companionName && <button type="button" onClick={() => setEditingCompanionName(false)} className="focus-ring mt-2 text-[10px] font-semibold tracking-[.08em] text-[#800020]">DONE</button>}
+                </>}
             </div>
-            : <div className="mt-5">
-              <label className="block text-xs font-semibold text-[#39251f]" htmlFor="companion-name">Companion’s full name</label>
-              <input id="companion-name" value={companionName} onChange={(event) => setCompanionName(event.target.value)} required maxLength={120} autoComplete="name" className="focus-ring mt-2 h-11 w-full border border-[#e4d6c6] px-3 text-sm font-normal outline-none" />
-              {verified.guests.some((guest) => guest.guest_role === 'Companion') && <button type="button" onClick={() => setEditingCompanionName(false)} className="focus-ring mt-2 text-[10px] font-semibold tracking-[.08em] text-[#800020]">DONE</button>}
-            </div>)}
+            <fieldset className="mt-6">
+              <legend className="mb-3 text-xs font-semibold text-[#39251f]">Your guest’s response</legend>
+              <div className="flex flex-wrap gap-3">
+                {[
+                  ['attending', 'Joyfully accepts'],
+                  ['declined', 'Regretfully declines'],
+                ].map(([value, label]) => <label key={value} className={`flex cursor-pointer items-center gap-2 border px-3 py-2.5 text-xs transition ${companionAttendance === value ? 'border-[#800020] bg-[#800020]/[.045] text-[#570b19]' : 'border-[#e8d9c8] text-[#76665c]'}`}>
+                  <input type="radio" name="companion-attendance" value={value} checked={companionAttendance === value} onChange={() => setCompanionAttendance(value)} className="accent-[#800020]" />
+                  {label}
+                </label>)}
+              </div>
+            </fieldset>
+          </>}
+          {!hasRegisteredCompanion && attendance === 'attending' && bringCompanion && <div className="mt-5">
+            <label className="block text-xs font-semibold text-[#39251f]" htmlFor="companion-name">Guest’s full name</label>
+            <input id="companion-name" value={companionName} onChange={(event) => setCompanionName(event.target.value)} required maxLength={120} autoComplete="name" className="focus-ring mt-2 h-11 w-full border border-[#e4d6c6] px-3 text-sm font-normal outline-none" />
+          </div>}
           <div className="mt-6">
             <label className="text-xs font-semibold text-[#39251f]">Mobile number
               <input value={contact} onChange={(event) => setContact(event.target.value)} required maxLength={40} autoComplete="tel" inputMode="tel" className="focus-ring mt-2 h-11 w-full border border-[#e4d6c6] px-3 text-sm font-normal outline-none" />
@@ -186,8 +225,9 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
         <p className="mt-5 text-center text-[10px] font-semibold tracking-[.22em] text-[#73752d]">ONE LAST LOOK</p>
         <h3 id="rsvp-confirm-title" className="font-display mt-2 text-center text-2xl text-[#570b19]">Confirm your RSVP</h3>
         <p id="rsvp-confirm-description" className="mt-2 text-center text-sm text-[#76665c]">You’re responding for {verified.primary_guest_name}.</p>
-        <p className="mt-5 text-center text-sm text-[#76665c]">{attendance === 'attending' ? `Seats reserved: ${bringCompanion ? 2 : 1}` : 'Regretfully declines'}</p>
-        {bringCompanion && <p className="mt-1 text-center text-sm text-[#570b19]">{companionName}</p>}
+        <p className="mt-5 text-center text-sm text-[#76665c]">{seatsReserved ? `Seats reserved: ${seatsReserved}` : 'Regretfully declines'}</p>
+        {primaryAttending && <p className="mt-1 text-center text-sm text-[#570b19]">{verified.primary_guest_name}</p>}
+        {companionAttending && <p className="mt-1 text-center text-sm text-[#570b19]">{companionName}</p>}
         {error && <ErrorMessage>{error}</ErrorMessage>}
         <div className="mt-6 grid gap-2 sm:grid-cols-2">
           <button ref={cancelButtonRef} type="button" disabled={loading} onClick={() => { setConfirmOpen(false); setError(''); }} className="focus-ring h-12 border border-[#c5a15b]/70 px-4 text-xs font-semibold tracking-[.1em] text-[#570b19] transition hover:bg-white disabled:opacity-50">REVIEW MY ANSWERS</button>

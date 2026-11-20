@@ -170,7 +170,7 @@ test('admin dashboard identifies the invitation with invalid guest data', () => 
   assert.match(result.error, /Companion: 2/);
 });
 
-test('RSVP records one guest and an optional companion once, and updates the party response', () => {
+test('RSVP tracks primary and companion responses independently without duplicate rows', () => {
   const service = createService();
   service.addInvitation('WED-001', 'Tony Stark', 'private-001');
   service.addInvitation('WED-002', 'Steve Rogers', 'private-002');
@@ -181,12 +181,14 @@ test('RSVP records one guest and an optional companion once, and updates the par
     attendance_status: 'attending',
     bring_companion: true,
     companion_name: 'Pepper Potts',
+    companion_attendance_status: 'attending',
     contact_number: '+639171234567',
   };
 
   const first = service.post(payload);
   assert.equal(first.ok, true);
   assert.deepEqual(first.data.responses.map((response) => response.guest_name), ['Tony Stark', 'Pepper Potts']);
+  assert.deepEqual(first.data.responses.map((response) => response.attendance_status), ['attending', 'attending']);
   assert.equal(service.sheets.get('RSVP_RESPONSES').rows.length, 3);
 
   const verified = service.post({
@@ -197,21 +199,31 @@ test('RSVP records one guest and an optional companion once, and updates the par
   assert.equal(verified.ok, true);
   assert.equal(verified.data.invitation.contact_number, '+639171234567');
   assert.equal(verified.data.invitation.guests[1].guest_name, 'Pepper Potts');
+  assert.equal(verified.data.invitation.guests[1].rsvp_status, 'attending');
 
   const renamed = service.post({ ...payload, companion_name: 'Pepper Parker' });
   assert.equal(renamed.ok, true);
   assert.equal(service.sheets.get('RSVP_RESPONSES').rows.length, 3);
   assert.equal(service.sheets.get('INVITED_GUESTS').rows.find((row) => row[0] === first.data.responses[1].guest_id)[2], 'Pepper Parker');
 
-  const noCompanion = service.post({ ...payload, bring_companion: false, companion_name: '' });
-  assert.equal(noCompanion.ok, true);
-  assert.equal(noCompanion.data.responses.length, 1);
-  assert.equal(service.sheets.get('RSVP_RESPONSES').rows.length, 2);
-  assert.equal(service.sheets.get('INVITED_GUESTS').rows.length, 3);
-  assert.equal(service.sheets.get('RSVP_RESPONSES').rows[1][5], '+639171234567');
+  const companionDeclines = service.post({ ...payload, companion_name: 'Pepper Parker', companion_attendance_status: 'declined' });
+  assert.equal(companionDeclines.ok, true);
+  assert.deepEqual(companionDeclines.data.responses.map((response) => response.attendance_status), ['attending', 'declined']);
+  assert.equal(service.sheets.get('RSVP_RESPONSES').rows.length, 3);
+
+  const companionAttendsAlone = service.post({
+    ...payload,
+    attendance_status: 'declined',
+    companion_name: 'Pepper Parker',
+    companion_attendance_status: 'attending',
+  });
+  assert.equal(companionAttendsAlone.ok, true);
+  assert.deepEqual(companionAttendsAlone.data.responses.map((response) => response.attendance_status), ['declined', 'attending']);
+  assert.equal(service.sheets.get('RSVP_RESPONSES').rows.length, 3);
 
   const dashboard = service.post({ action: 'admin_dashboard', admin_password: 'a sufficiently long admin password' });
   assert.equal(dashboard.data.summary.attending, 1);
+  assert.equal(dashboard.data.summary.declined, 1);
   assert.equal(dashboard.data.summary.capacity_remaining, 59);
   assert.equal(dashboard.data.summary.pending, 1);
 });
@@ -245,6 +257,12 @@ test('RSVP requires a mobile number and companion name and rejects duplicate nam
   assert.equal(declinedWithCompanion.ok, false);
   assert.equal(declinedWithCompanion.code, 'invalid_companion');
   assert.equal(service.sheets.get('RSVP_RESPONSES').rows.length, 1);
+
+  const noCompanion = service.post({ ...payload, bring_companion: false, companion_name: '' });
+  assert.equal(noCompanion.ok, true);
+  assert.equal(noCompanion.data.responses.length, 1);
+  assert.equal(service.sheets.get('RSVP_RESPONSES').rows.length, 2);
+  assert.equal(service.sheets.get('INVITED_GUESTS').rows.length, 2);
 });
 
 test('admin can add or rename one companion without confirming their RSVP', () => {
@@ -283,9 +301,10 @@ test('admin can add or rename one companion without confirming their RSVP', () =
     action: 'submit_rsvp',
     invitation_id: 'WED-001',
     invitation_code: 'private-001',
-    attendance_status: 'attending',
+    attendance_status: 'declined',
     bring_companion: true,
     companion_name: 'Pepper Parker',
+    companion_attendance_status: 'attending',
     contact_number: '+639171234567',
   });
   assert.equal(accepted.ok, true);
@@ -297,6 +316,7 @@ test('admin can add or rename one companion without confirming their RSVP', () =
   assert.equal(service.sheets.get('RSVP_RESPONSES').rows.length, 3);
   assert.equal(service.sheets.get('RSVP_RESPONSES').rows[2][3], 'Pepper Stark');
   assert.equal(service.sheets.get('RSVP_RESPONSES').rows[2][4], 'attending');
+  assert.equal(service.sheets.get('RSVP_RESPONSES').rows[1][4], 'declined');
 });
 
 test('the 60-person capacity includes companions and released seats can be reused', () => {
@@ -330,8 +350,10 @@ test('the 60-person capacity includes companions and released seats can be reuse
     action: 'submit_rsvp',
     invitation_id: 'WED-001',
     invitation_code: 'private-1',
-    attendance_status: 'attending',
-    bring_companion: false,
+    attendance_status: 'declined',
+    bring_companion: true,
+    companion_name: 'Companion 1',
+    companion_attendance_status: 'attending',
     contact_number: '+639171234500',
   });
   assert.equal(releaseSeat.ok, true);

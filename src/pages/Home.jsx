@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import AttireGuide from '../components/AttireGuide.jsx';
+import Ceremony from '../components/Ceremony.jsx';
 import Footer from '../components/Footer.jsx';
 import Hero from '../components/Hero.jsx';
 import Navbar from '../components/Navbar.jsx';
@@ -16,6 +17,7 @@ export default function Home() {
     <Navbar />
     <main>
       <Hero />
+      <Ceremony />
       <Venue />
       <AttireGuide />
       <RSVPSection />

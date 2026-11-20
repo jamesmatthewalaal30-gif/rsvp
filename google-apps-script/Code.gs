@@ -183,14 +183,27 @@ function submitRsvp_(payload) {
     if (status !== 'attending' && status !== 'declined') {
       throw apiError_('invalid_status', 'Choose Joyfully accepts or Regretfully declines.');
     }
-    if (typeof payload.bring_companion !== 'boolean' || (status === 'declined' && payload.bring_companion)) {
-      throw apiError_('invalid_companion', 'A companion can only be registered with an accepted RSVP.');
-    }
     const primary = guests.filter(function (guest) { return guest.guest_role === 'Primary Guest'; })[0];
     let companion = guests.filter(function (guest) { return guest.guest_role === 'Companion'; })[0];
-    const companionName = payload.bring_companion ? cleanRequired_(payload.companion_name, 120, 'Companion full name') : '';
+    let companionName = '';
+    let companionStatus = '';
+    if (companion) {
+      companionName = cleanRequired_(payload.companion_name, 120, 'Guest full name');
+      companionStatus = payload.companion_attendance_status;
+      if (companionStatus !== 'attending' && companionStatus !== 'declined') {
+        throw apiError_('invalid_companion', 'Choose Joyfully accepts or Regretfully declines for your guest.');
+      }
+    } else {
+      if (typeof payload.bring_companion !== 'boolean' || (status === 'declined' && payload.bring_companion)) {
+        throw apiError_('invalid_companion', 'An additional guest can only be included with an accepted RSVP.');
+      }
+      if (payload.bring_companion) {
+        companionName = cleanRequired_(payload.companion_name, 120, 'Guest full name');
+        companionStatus = 'attending';
+      }
+    }
     if (companionName && companionName.toLowerCase() === primary.guest_name.toLowerCase()) {
-      throw apiError_('duplicate_guest', 'The companion name must be different from the invited guest name.');
+      throw apiError_('duplicate_guest', 'The additional guest’s name must be different from the invited guest’s name.');
     }
     const contact = cleanRequired_(payload.contact_number, 40, 'Mobile number');
     const responseSheet = sheet_('RSVP_RESPONSES');
@@ -204,17 +217,14 @@ function submitRsvp_(payload) {
     const oldAttending = existingRows.filter(function (row) {
       return row.invitation_id === invitation.invitation_id && row.attendance_status === 'attending';
     }).length;
-    const nextAttending = status === 'attending' ? (payload.bring_companion ? 2 : 1) : 0;
+    const nextAttending = (status === 'attending' ? 1 : 0) + (companionStatus === 'attending' ? 1 : 0);
     const totalAttending = existingRows.filter(function (row) { return row.attendance_status === 'attending'; }).length;
     if (totalAttending - oldAttending + nextAttending > RSVP_CAPACITY) {
       throw apiError_('capacity_reached', 'The celebration has reached its 60-seat capacity. Please contact Kym for help.');
     }
 
     const now = new Date().toISOString();
-    if (!payload.bring_companion && companion) {
-      deleteMatchingRows_('RSVP_RESPONSES', 'guest_id', companion.guest_id);
-      guestSheet.deleteRow(companion._row);
-    } else if (payload.bring_companion && companion) {
+    if (companion) {
       guestSheet.getRange(companion._row, 3).setValue(companionName);
       updateResponseGuestNames_(companion.guest_id, companionName);
     } else if (payload.bring_companion) {
@@ -228,7 +238,7 @@ function submitRsvp_(payload) {
     }
     const currentGuests = getInvitationGuests_(invitation.invitation_id);
     currentGuests.forEach(function (guest) {
-      const attendance = guest.guest_role === 'Primary Guest' ? status : 'attending';
+      const attendance = guest.guest_role === 'Primary Guest' ? status : companionStatus;
       guestSheet.getRange(guest._row, 5).setValue(attendance);
       const existing = records_('RSVP_RESPONSES').filter(function (row) { return row.guest_id === guest.guest_id; })[0];
       const record = [
@@ -244,7 +254,11 @@ function submitRsvp_(payload) {
       else responseSheet.appendRow(record);
     });
     const results = getInvitationGuests_(invitation.invitation_id).map(function (guest) {
-      return { guest_id: guest.guest_id, guest_name: guest.guest_name, attendance_status: status === 'attending' ? 'attending' : 'declined' };
+      return {
+        guest_id: guest.guest_id,
+        guest_name: guest.guest_name,
+        attendance_status: guest.guest_role === 'Primary Guest' ? status : companionStatus,
+      };
     });
     return { responses: results };
   } finally {
@@ -463,7 +477,7 @@ function validateSeatCount_(invitation, guests, includeDetails) {
 
 function validateCompanionLimit_(guests) {
   if (guests.length > 2) {
-    throw apiError_('companion_limit', 'An invitation can include only one companion.');
+    throw apiError_('companion_limit', 'An invitation can include only one additional guest.');
   }
 }
 
