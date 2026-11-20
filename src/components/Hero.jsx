@@ -47,13 +47,13 @@ export default function Hero() {
               <span className="ml-1 text-[9px] uppercase tracking-[.1em] text-[#76665c] sm:text-[10px]">{label}</span>
             </div>)}
           </div>
-          <a href="#rsvp" className="mt-9 inline-flex items-center justify-center gap-3 rounded-sm bg-[#800020] px-7 py-4 text-[11px] font-semibold tracking-[.16em] text-[#fff8ef] shadow-[0_8px_24px_rgba(87,11,25,.17)] transition hover:-translate-y-0.5 hover:bg-[#570b19]">
+          <a href="#rsvp" className="mt-9 inline-flex items-center justify-center gap-3 rounded-sm bg-[#800020] px-7 py-4 text-[11px] font-semibold tracking-[.16em] text-white shadow-[0_8px_24px_rgba(87,11,25,.17)] transition hover:-translate-y-0.5 hover:bg-[#570b19]">
             CONFIRM YOUR ATTENDANCE <ArrowDown size={15} />
           </a>
         </motion.div>
         <motion.div className="mx-auto w-full max-w-[410px] lg:max-w-[450px]" initial={{ opacity: 0, scale: .97 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: .9, delay: .15 }}>
           <div className="floral-frame relative rounded-t-[48%] rounded-b-[10px] p-2.5">
-            <img className="aspect-[4/5] w-full rounded-t-[48%] rounded-b-[6px] object-cover" src="/images/wedding-invitation.png" alt="Together with their families, Nathaniel and Kimberly invite you to celebrate their marriage at their wedding reception on Wednesday, December 9, 2026, from 10:30 AM to 3:00 PM at Casamara Beach Resort, Baybay, Roxas City, Capiz, Philippines." fetchPriority="high" />
+            <img className="aspect-[4/5] w-full rounded-t-[48%] rounded-b-[6px] object-cover" src="/images/wedding-invitation.png" alt="Original wedding invitation for Nathaniel and Kimberly" fetchPriority="high" />
             <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-[#c5a15b]/60 bg-[#fff8ef] px-5 py-2 font-display text-sm italic text-[#570b19] shadow-sm">With love, Nate &amp; Kym</div>
           </div>
         </motion.div>

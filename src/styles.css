@@ -16,7 +16,6 @@
 body { margin: 0; min-width: 320px; }
 button, input, textarea, select { font: inherit; }
 button { cursor: pointer; }
-a { color: inherit; }
 
 .font-display { font-family: "Playfair Display", Georgia, serif; }
 .font-script { font-family: "Great Vibes", cursive; }
