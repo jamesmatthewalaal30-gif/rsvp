@@ -8,6 +8,7 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
   const [attendance, setAttendance] = useState('');
   const [bringCompanion, setBringCompanion] = useState(null);
   const [companionName, setCompanionName] = useState('');
+  const [editingCompanionName, setEditingCompanionName] = useState(false);
   const [contact, setContact] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -37,6 +38,7 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
       const primary = details.guests.find((guest) => guest.guest_role === 'Primary Guest');
       const companion = details.guests.find((guest) => guest.guest_role === 'Companion');
       setVerified(details);
+      setEditingCompanionName(false);
       setAttendance(primary?.rsvp_status || '');
       setBringCompanion(companion
         ? companion.rsvp_status === 'attending'
@@ -134,7 +136,6 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
                 <input type="radio" name="attendance" value={value} checked={attendance === value} onChange={() => {
                   if (value === 'declined') {
                     setBringCompanion(false);
-                    setCompanionName('');
                   } else if (attendance === 'declined') {
                     setBringCompanion(null);
                   }
@@ -148,14 +149,24 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
             <legend className="mb-3 text-xs font-semibold text-[#39251f]">Will you bring a companion?</legend>
             <div className="flex gap-3">
               {[['yes', true], ['no', false]].map(([label, value]) => <label key={label} className={`flex cursor-pointer items-center gap-2 border px-4 py-2.5 text-xs transition ${bringCompanion === value ? 'border-[#800020] bg-[#800020]/[.045] text-[#570b19]' : 'border-[#e8d9c8] text-[#76665c]'}`}>
-                <input type="radio" name="bring-companion" checked={bringCompanion === value} onChange={() => { setBringCompanion(value); if (!value) setCompanionName(''); }} className="accent-[#800020]" />
+                <input type="radio" name="bring-companion" checked={bringCompanion === value} onChange={() => setBringCompanion(value)} className="accent-[#800020]" />
                 {label === 'yes' ? 'Yes' : 'No'}
               </label>)}
             </div>
           </fieldset>}
-          {attendance === 'attending' && bringCompanion && <label className="mt-5 block text-xs font-semibold text-[#39251f]">Companion’s full name
-            <input value={companionName} onChange={(event) => setCompanionName(event.target.value)} required maxLength={120} autoComplete="name" className="focus-ring mt-2 h-11 w-full border border-[#e4d6c6] px-3 text-sm font-normal outline-none" />
-          </label>}
+          {attendance === 'attending' && bringCompanion && (verified.guests.some((guest) => guest.guest_role === 'Companion') && !editingCompanionName
+            ? <div className="mt-5">
+              <p className="text-xs font-semibold text-[#39251f]">Companion’s full name</p>
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-3 border border-[#e4d6c6] px-3 py-2.5">
+                <span className="text-sm text-[#39251f]">{companionName}</span>
+                <button type="button" onClick={() => setEditingCompanionName(true)} className="focus-ring text-[10px] font-semibold tracking-[.08em] text-[#800020]">EDIT COMPANION NAME</button>
+              </div>
+            </div>
+            : <div className="mt-5">
+              <label className="block text-xs font-semibold text-[#39251f]" htmlFor="companion-name">Companion’s full name</label>
+              <input id="companion-name" value={companionName} onChange={(event) => setCompanionName(event.target.value)} required maxLength={120} autoComplete="name" className="focus-ring mt-2 h-11 w-full border border-[#e4d6c6] px-3 text-sm font-normal outline-none" />
+              {verified.guests.some((guest) => guest.guest_role === 'Companion') && <button type="button" onClick={() => setEditingCompanionName(false)} className="focus-ring mt-2 text-[10px] font-semibold tracking-[.08em] text-[#800020]">DONE</button>}
+            </div>)}
           <div className="mt-6">
             <label className="text-xs font-semibold text-[#39251f]">Mobile number
               <input value={contact} onChange={(event) => setContact(event.target.value)} required maxLength={40} autoComplete="tel" inputMode="tel" className="focus-ring mt-2 h-11 w-full border border-[#e4d6c6] px-3 text-sm font-normal outline-none" />
