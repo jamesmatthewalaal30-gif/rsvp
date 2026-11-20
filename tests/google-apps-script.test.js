@@ -443,3 +443,81 @@ test('invitation creation allows one named guest and admin actions require authe
   assert.equal(unauthorizedAdmin.ok, false);
   assert.equal(unauthorizedAdmin.code, 'unauthorized');
 });
+
+test('admins can configure additional guest permission per invitation', () => {
+  const service = createService();
+  const admin = { admin_password: 'a sufficiently long admin password' };
+  const created = service.post({
+    ...admin,
+    action: 'admin_create_invitation',
+    primary_guest_name: 'Mia Santos',
+    guest_type: 'Friend',
+    invitation_code: 'private-mia',
+    guest_names: ['Mia Santos'],
+    allow_additional_guest: false,
+  });
+  assert.equal(created.ok, true);
+  const invitationId = created.data.invitation_id;
+  assert.equal(service.sheets.get('INVITATIONS').rows[1][4], 1);
+
+  const addGuestAsInvitee = service.post({
+    action: 'submit_rsvp',
+    invitation_id: invitationId,
+    invitation_code: 'private-mia',
+    attendance_status: 'attending',
+    bring_companion: true,
+    companion_name: 'Noah Santos',
+    contact_number: '+639171234567',
+  });
+  assert.equal(addGuestAsInvitee.ok, false);
+  assert.equal(addGuestAsInvitee.code, 'guest_not_allowed');
+
+  const oneGuestRsvp = service.post({
+    action: 'submit_rsvp',
+    invitation_id: invitationId,
+    invitation_code: 'private-mia',
+    attendance_status: 'attending',
+    bring_companion: false,
+    companion_name: '',
+    contact_number: '+639171234567',
+  });
+  assert.equal(oneGuestRsvp.ok, true);
+  assert.equal(oneGuestRsvp.data.responses.length, 1);
+
+  const allowAdditionalGuest = service.post({
+    ...admin,
+    action: 'admin_edit_invitation',
+    invitation_id: invitationId,
+    primary_guest_name: 'Mia Santos',
+    guest_type: 'Friend',
+    invitation_code: 'private-mia',
+    allow_additional_guest: true,
+  });
+  assert.equal(allowAdditionalGuest.ok, true);
+  assert.equal(service.sheets.get('INVITATIONS').rows[1][4], 2);
+
+  const twoGuestRsvp = service.post({
+    action: 'submit_rsvp',
+    invitation_id: invitationId,
+    invitation_code: 'private-mia',
+    attendance_status: 'attending',
+    bring_companion: true,
+    companion_name: 'Noah Santos',
+    contact_number: '+639171234567',
+  });
+  assert.equal(twoGuestRsvp.ok, true);
+  assert.equal(twoGuestRsvp.data.responses.length, 2);
+
+  const disallowWithRegisteredGuest = service.post({
+    ...admin,
+    action: 'admin_edit_invitation',
+    invitation_id: invitationId,
+    primary_guest_name: 'Mia Santos',
+    guest_type: 'Friend',
+    invitation_code: 'private-mia',
+    allow_additional_guest: false,
+  });
+  assert.equal(disallowWithRegisteredGuest.ok, false);
+  assert.equal(disallowWithRegisteredGuest.code, 'seat_mismatch');
+  assert.equal(service.sheets.get('INVITATIONS').rows[1][4], 2);
+});

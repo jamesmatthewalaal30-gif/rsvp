@@ -198,6 +198,9 @@ function submitRsvp_(payload) {
         throw apiError_('invalid_companion', 'An additional guest can only be included with an accepted RSVP.');
       }
       if (payload.bring_companion) {
+        if (Number(invitation.allocated_seats) < 2) {
+          throw apiError_('guest_not_allowed', 'This invitation does not allow an additional guest. Please contact the wedding organizers if you need help.');
+        }
         companionName = cleanRequired_(payload.companion_name, 120, 'Guest full name');
         companionStatus = 'attending';
       }
@@ -341,8 +344,12 @@ function adminCreateInvitation_(payload) {
     const code = cleanRequired_(payload.invitation_code, 100, 'Invitation code');
     const guestType = cleanText_(payload.guest_type, 80);
     const names = validateGuestNames_(payload.guest_names, primary);
+    const allowAdditionalGuest = payload.allow_additional_guest === undefined ? true : payload.allow_additional_guest;
+    if (typeof allowAdditionalGuest !== 'boolean') {
+      throw apiError_('invalid_input', 'Choose whether this invitation allows one additional guest.');
+    }
     const invitationId = 'WED-' + Utilities.getUuid().slice(0, 8).toUpperCase();
-    sheet_('INVITATIONS').appendRow([invitationId, primary, code, guestType, 2, new Date().toISOString()]);
+    sheet_('INVITATIONS').appendRow([invitationId, primary, code, guestType, allowAdditionalGuest ? 2 : 1, new Date().toISOString()]);
     names.forEach(function (name) {
       sheet_('INVITED_GUESTS').appendRow([
         Utilities.getUuid(),
@@ -365,7 +372,16 @@ function adminEditInvitation_(payload) {
     const guestType = cleanText_(payload.guest_type, 80);
     const guests = getInvitationGuests_(invitation.invitation_id);
     validateSeatCount_(invitation, guests);
-    const seats = 2;
+    const allowAdditionalGuest = payload.allow_additional_guest === undefined
+      ? Number(invitation.allocated_seats) > 1
+      : payload.allow_additional_guest;
+    if (typeof allowAdditionalGuest !== 'boolean') {
+      throw apiError_('invalid_input', 'Choose whether this invitation allows one additional guest.');
+    }
+    const seats = allowAdditionalGuest ? 2 : 1;
+    if (guests.length > seats) {
+      throw apiError_('seat_mismatch', 'Remove the additional guest before limiting this invitation to one seat.');
+    }
     const primaryGuests = guests.filter(function (guest) { return guest.guest_role === 'Primary Guest'; });
     if (primaryGuests.length !== 1) throw apiError_('invalid_invitation', 'This invitation must have exactly one primary guest.');
     if (guests.some(function (guest) {
@@ -402,12 +418,12 @@ function adminSetCompanion_(payload) {
     const guests = getInvitationGuests_(invitation.invitation_id);
     validateSeatCount_(invitation, guests);
     const companion = guests.filter(function (guest) { return guest.guest_role === 'Companion'; })[0];
-    const name = cleanRequired_(payload.companion_name, 120, 'Companion full name');
+    const name = cleanRequired_(payload.companion_name, 120, 'Additional guest full name');
     if (guests.some(function (guest) {
       return guest.guest_id !== (companion ? companion.guest_id : '') &&
         guest.guest_name.toLowerCase() === name.toLowerCase();
     })) {
-      throw apiError_('duplicate_guest', 'The companion name must be different from the invited guest name.');
+      throw apiError_('duplicate_guest', 'The additional guest’s name must be different from the invited guest’s name.');
     }
 
     if (companion) {
@@ -442,7 +458,7 @@ function adminDeleteInvitation_(payload) {
 
 function validateGuestNames_(input, primary) {
   if (!Array.isArray(input) || input.length !== 1) {
-    throw apiError_('invalid_guests', 'Add only the invited guest here; companions register with the RSVP.');
+    throw apiError_('invalid_guests', 'Add only the invited guest here; additional guests register with the RSVP.');
   }
   const names = input.map(function (name) { return cleanRequired_(name, 120, 'Guest name'); });
   if (names[0].toLowerCase() !== primary.toLowerCase()) {

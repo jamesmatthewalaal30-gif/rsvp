@@ -63,12 +63,13 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
       return;
     }
     const hasRegisteredCompanion = verified.guests.some((guest) => guest.guest_role === 'Companion');
+    const allowsAdditionalGuest = Number(verified.allocated_seats) > 1;
     if (hasRegisteredCompanion && !['attending', 'declined'].includes(companionAttendance)) {
       setError('Please choose Joyfully accepts or Regretfully declines for your guest.');
       return;
     }
-    if (!hasRegisteredCompanion && attendance === 'attending' && typeof bringCompanion !== 'boolean') {
-      setError('Please choose Yes or No for bringing a companion.');
+    if (!hasRegisteredCompanion && allowsAdditionalGuest && attendance === 'attending' && typeof bringCompanion !== 'boolean') {
+      setError('Please choose Yes or No for bringing an additional guest.');
       return;
     }
     if (hasRegisteredCompanion && !companionName.trim()) {
@@ -88,7 +89,9 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
     setError('');
     try {
       const hasRegisteredCompanion = verified.guests.some((guest) => guest.guest_role === 'Companion');
-      const includeCompanion = hasRegisteredCompanion || (attendance === 'attending' && bringCompanion);
+      const allowsAdditionalGuest = Number(verified.allocated_seats) > 1;
+      const includeCompanion = hasRegisteredCompanion ||
+        (allowsAdditionalGuest && attendance === 'attending' && bringCompanion === true);
       const result = await submitRsvp({
         invitation_id: verified.invitation_id,
         invitation_code: code.trim(),
@@ -129,10 +132,11 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
   </div>;
 
   const hasRegisteredCompanion = verified.guests.some((guest) => guest.guest_role === 'Companion');
+  const allowsAdditionalGuest = Number(verified.allocated_seats) > 1;
   const primaryAttending = attendance === 'attending';
   const companionAttending = hasRegisteredCompanion
     ? companionAttendance === 'attending'
-    : primaryAttending && bringCompanion === true;
+    : allowsAdditionalGuest && primaryAttending && bringCompanion === true;
   const seatsReserved = (primaryAttending ? 1 : 0) + (companionAttending ? 1 : 0);
 
   return <>
@@ -141,7 +145,7 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
       <div className="border border-[#c5a15b]/50 bg-white p-6 sm:p-8">
         <p className="text-[10px] font-semibold tracking-[.2em] text-[#73752d]">YOUR INVITATION</p>
         <h3 className="font-display mt-2 text-2xl text-[#570b19]">{verified.primary_guest_name}</h3>
-        <p className="mt-2 text-sm text-[#76665c]">Please submit one RSVP for yourself and your guest, if bringing one.</p>
+        <p className="mt-2 text-sm text-[#76665c]">{allowsAdditionalGuest ? 'Please submit one RSVP for yourself and your guest, if bringing one.' : 'Please submit your RSVP for yourself.'}</p>
         <form onSubmit={handleSubmit} className="mt-7">
           <fieldset>
             <legend className="mb-3 text-xs font-semibold text-[#39251f]">Your response</legend>
@@ -164,7 +168,7 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
               </label>)}
             </div>
           </fieldset>
-          {!hasRegisteredCompanion && attendance === 'attending' && <fieldset className="mt-6">
+          {!hasRegisteredCompanion && allowsAdditionalGuest && attendance === 'attending' && <fieldset className="mt-6">
             <legend className="mb-3 text-xs font-semibold text-[#39251f]">Will you bring one additional guest?</legend>
             <div className="flex gap-3">
               {[['yes', true], ['no', false]].map(([label, value]) => <label key={label} className={`flex cursor-pointer items-center gap-2 border px-4 py-2.5 text-xs transition ${bringCompanion === value ? 'border-[#800020] bg-[#800020]/[.045] text-[#570b19]' : 'border-[#e8d9c8] text-[#76665c]'}`}>
@@ -173,16 +177,17 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
               </label>)}
             </div>
           </fieldset>}
+          {!hasRegisteredCompanion && !allowsAdditionalGuest && attendance === 'attending' && <p className="mt-6 text-sm text-[#76665c]">This invitation is for the named guest only.</p>}
           {hasRegisteredCompanion && <>
-            <div className="mt-6">
+            <div className="mt-7 border-t border-[#e4d6c6] pt-6">
               {companionName && !editingCompanionName
-                ? <>
-                  <p className="text-xs font-semibold text-[#39251f]">Guest’s full name</p>
-                  <div className="mt-2 flex flex-wrap items-center justify-between gap-3 border border-[#e4d6c6] px-3 py-2.5">
-                    <span className="text-sm text-[#39251f]">{companionName}</span>
-                    <button type="button" onClick={() => setEditingCompanionName(true)} className="focus-ring text-[10px] font-semibold tracking-[.08em] text-[#800020]">EDIT GUEST NAME</button>
+                ? <div className="flex flex-wrap items-end justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-semibold tracking-[.2em] text-[#73752d]">ADDITIONAL GUEST</p>
+                    <h4 className="font-display mt-2 text-2xl text-[#570b19]">{companionName}</h4>
                   </div>
-                </>
+                  <button type="button" onClick={() => setEditingCompanionName(true)} className="focus-ring text-[10px] font-semibold tracking-[.08em] text-[#800020]">EDIT GUEST NAME</button>
+                </div>
                 : <>
                   <label className="block text-xs font-semibold text-[#39251f]" htmlFor="companion-name">Guest’s full name</label>
                   <input id="companion-name" value={companionName} onChange={(event) => setCompanionName(event.target.value)} required maxLength={120} autoComplete="name" className="focus-ring mt-2 h-11 w-full border border-[#e4d6c6] px-3 text-sm font-normal outline-none" />
@@ -190,7 +195,7 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
                 </>}
             </div>
             <fieldset className="mt-6">
-              <legend className="mb-3 text-xs font-semibold text-[#39251f]">Your guest’s response</legend>
+              <legend className="mb-3 text-xs font-semibold text-[#39251f]">Guest’s response</legend>
               <div className="flex flex-wrap gap-3">
                 {[
                   ['attending', 'Joyfully accepts'],

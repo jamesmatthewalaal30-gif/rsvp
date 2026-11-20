@@ -56,7 +56,7 @@ export default function AdminDashboard() {
   }
 
   async function removeGuest(invitationId, guestId) {
-    if (!window.confirm('Remove this registered companion? Their RSVP record will also be removed.')) return;
+    if (!window.confirm('Remove this registered additional guest? Their RSVP record will also be removed.')) return;
     try {
       await adminRequest('admin_remove_guest', { invitation_id: invitationId, guest_id: guestId }, password);
       await loadDashboard();
@@ -206,6 +206,7 @@ function InvitationRow({ invitation, onRemove, onEdit, onSetCompanion, onDelete 
         primary_guest_name: form.get('primary_guest_name'),
         guest_type: form.get('guest_type'),
         invitation_code: form.get('invitation_code'),
+        allow_additional_guest: form.get('allow_additional_guest') === 'on',
       });
       setEditing(false);
     } catch (requestError) {
@@ -235,30 +236,31 @@ function InvitationRow({ invitation, onRemove, onEdit, onSetCompanion, onDelete 
 
   return <details className="group border border-[#e4d6c6]">
     <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 p-4">
-      <div><p className="font-display text-lg text-[#570b19]">{invitation.primary_guest_name}</p><p className="mt-1 text-xs text-[#76665c]">{invitation.invitation_id} · {invitation.guest_type} · Up to 2 seats</p></div>
+      <div><p className="font-display text-lg text-[#570b19]">{invitation.primary_guest_name}</p><p className="mt-1 text-xs text-[#76665c]">{invitation.invitation_id} · {invitation.guest_type} · {invitation.allocated_seats} {Number(invitation.allocated_seats) === 1 ? 'seat' : 'seats'}</p></div>
       <span className="text-xs text-[#73752d]">{invitation.guests.length} registered · {invitation.guests.filter((guest) => guest.rsvp_status).length} responded</span>
     </summary>
     <div className="flex flex-wrap gap-2 border-t border-[#e4d6c6] px-4 py-3">
       <button onClick={() => setEditing(!editing)} className="border border-[#e4d6c6] px-3 py-2 text-[10px] font-semibold tracking-[.1em] text-[#570b19]">EDIT INVITATION</button>
-      <button onClick={() => { setCompanionEditing(!companionEditing); setCompanionError(''); }} className="border border-[#e4d6c6] px-3 py-2 text-[10px] font-semibold tracking-[.1em] text-[#570b19]">{companion ? 'EDIT COMPANION' : 'ADD COMPANION'}</button>
+      <button onClick={() => { setCompanionEditing(!companionEditing); setCompanionError(''); }} className="border border-[#e4d6c6] px-3 py-2 text-[10px] font-semibold tracking-[.1em] text-[#570b19]">{companion ? 'EDIT ADDITIONAL GUEST' : 'ADD ADDITIONAL GUEST'}</button>
       <button onClick={() => onDelete(invitation.invitation_id)} className="ml-auto inline-flex items-center gap-1 border border-[#800020]/30 px-3 py-2 text-[10px] font-semibold tracking-[.1em] text-[#800020]"><Trash2 size={13} /> DELETE</button>
     </div>
     {editing && <form onSubmit={submitEdit} className="grid gap-3 border-t border-[#e4d6c6] bg-[#fff8ef] p-4 sm:grid-cols-2">
       <label className="text-xs font-semibold">Primary guest<input name="primary_guest_name" required defaultValue={invitation.primary_guest_name} className="focus-ring mt-1 h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal" /></label>
       <label className="text-xs font-semibold">Guest type<input name="guest_type" defaultValue={invitation.guest_type} className="focus-ring mt-1 h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal" /></label>
       <label className="text-xs font-semibold">Invitation code<input name="invitation_code" required defaultValue={invitation.invitation_code} className="focus-ring mt-1 h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal" /></label>
+      <label className="flex items-center gap-2 text-xs font-semibold sm:col-span-2"><input name="allow_additional_guest" type="checkbox" defaultChecked={Number(invitation.allocated_seats) > 1} className="accent-[#800020]" /> Allow one additional guest</label>
       <div className="flex justify-end gap-2 sm:col-span-2"><button type="button" onClick={() => setEditing(false)} className="px-3 py-2 text-xs">CANCEL</button><button disabled={saving} className="bg-[#800020] px-4 py-2 text-xs font-semibold text-white">{saving ? 'SAVING…' : 'SAVE CHANGES'}</button></div>
     </form>}
     {companionEditing && <form onSubmit={submitCompanion} className="grid gap-3 border-t border-[#e4d6c6] bg-[#fff8ef] p-4 sm:grid-cols-2">
-      <label className="text-xs font-semibold sm:col-span-2">Companion’s full name<input name="companion_name" required maxLength={120} defaultValue={companion?.guest_name || ''} className="focus-ring mt-1 h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal" /></label>
-      <p className="text-xs leading-5 text-[#76665c] sm:col-span-2">This records the companion’s name only. The guest must accept or decline bringing them in their RSVP.</p>
+      <label className="text-xs font-semibold sm:col-span-2">Additional guest’s full name<input name="companion_name" required maxLength={120} defaultValue={companion?.guest_name || ''} className="focus-ring mt-1 h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal" /></label>
+      <p className="text-xs leading-5 text-[#76665c] sm:col-span-2">This records the additional guest’s name only. The invited guest must accept or decline for them in their RSVP.</p>
       {companionError && <p role="alert" className="text-sm text-[#800020] sm:col-span-2">{companionError}</p>}
-      <div className="flex justify-end gap-2 sm:col-span-2"><button type="button" onClick={() => setCompanionEditing(false)} className="px-3 py-2 text-xs">CANCEL</button><button disabled={companionSaving} className="bg-[#800020] px-4 py-2 text-xs font-semibold text-white disabled:opacity-60">{companionSaving ? 'SAVING…' : 'SAVE COMPANION'}</button></div>
+      <div className="flex justify-end gap-2 sm:col-span-2"><button type="button" onClick={() => setCompanionEditing(false)} className="px-3 py-2 text-xs">CANCEL</button><button disabled={companionSaving} className="bg-[#800020] px-4 py-2 text-xs font-semibold text-white disabled:opacity-60">{companionSaving ? 'SAVING…' : 'SAVE ADDITIONAL GUEST'}</button></div>
     </form>}
     {error && <p role="alert" className="border-t border-[#e4d6c6] px-4 py-3 text-sm text-[#800020]">{error}</p>}
     <div className="divide-y divide-[#eee5db] border-t border-[#e4d6c6] px-4">
       {invitation.guests.map((guest) => <div key={guest.guest_id} className="flex items-center justify-between py-3 text-sm">
-        <div><span className="text-[#39251f]">{guest.guest_name}</span><span className="ml-2 text-xs text-[#8d7a70]">{guest.guest_role}</span></div>
+        <div><span className="text-[#39251f]">{guest.guest_name}</span><span className="ml-2 text-xs text-[#8d7a70]">{guest.guest_role === 'Companion' ? 'Additional Guest' : guest.guest_role}</span></div>
         <div className="flex items-center gap-3"><span className="text-xs text-[#73752d]">{guest.rsvp_status || 'Pending'}</span><button aria-label={`Remove ${guest.guest_name}`} onClick={() => onRemove(invitation.invitation_id, guest.guest_id)} className="text-[#800020]" title="Remove invited guest"><Trash2 size={15} /></button></div>
       </div>)}
     </div>
@@ -269,6 +271,7 @@ function InvitationForm({ onCancel, onSubmit }) {
   const [primary, setPrimary] = useState('');
   const [type, setType] = useState('');
   const [code, setCode] = useState('');
+  const [allowAdditionalGuest, setAllowAdditionalGuest] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -278,7 +281,13 @@ function InvitationForm({ onCancel, onSubmit }) {
     setSaving(true);
     setError('');
     try {
-      await onSubmit({ primary_guest_name: primary.trim(), guest_type: type.trim(), invitation_code: code.trim(), guest_names: [primary.trim()] });
+      await onSubmit({
+        primary_guest_name: primary.trim(),
+        guest_type: type.trim(),
+        invitation_code: code.trim(),
+        guest_names: [primary.trim()],
+        allow_additional_guest: allowAdditionalGuest,
+      });
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -289,7 +298,8 @@ function InvitationForm({ onCancel, onSubmit }) {
     <label className="text-xs font-semibold">Primary guest name<input required value={primary} onChange={(event) => setPrimary(event.target.value)} className="focus-ring mt-2 h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal" /></label>
     <label className="text-xs font-semibold">Guest type<input value={type} onChange={(event) => setType(event.target.value)} className="focus-ring mt-2 h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal" placeholder="Family / Friend" /></label>
     <label className="text-xs font-semibold">Invitation code<input required value={code} onChange={(event) => setCode(event.target.value)} className="focus-ring mt-2 h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal" /></label>
-    <p className="text-xs leading-5 text-[#76665c]">Each invitation is for one named guest and may include one companion, registered by the guest during RSVP.</p>
+    <label className="flex items-center gap-2 text-xs font-semibold"><input type="checkbox" checked={allowAdditionalGuest} onChange={(event) => setAllowAdditionalGuest(event.target.checked)} className="accent-[#800020]" /> Allow one additional guest</label>
+    <p className="text-xs leading-5 text-[#76665c] sm:col-span-2">Each invitation is for the named guest. Choose whether they may bring one additional guest.</p>
     {error && <p role="alert" className="text-sm text-[#800020] sm:col-span-2">{error}</p>}
     <div className="flex justify-end gap-2 sm:col-span-2"><button type="button" onClick={onCancel} className="border border-[#e4d6c6] px-4 py-2 text-xs">CANCEL</button><button disabled={saving} className="inline-flex items-center gap-2 bg-[#800020] px-4 py-2 text-xs font-semibold text-white disabled:opacity-60">{saving ? 'SAVING…' : <><Plus size={14} /> CREATE INVITATION</>}</button></div>
   </form>;
