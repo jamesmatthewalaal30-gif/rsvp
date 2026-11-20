@@ -4,8 +4,8 @@ import SectionHeading from './SectionHeading.jsx';
 
 const cards = [
   { icon: CalendarDays, label: 'THE DATE', title: 'Wednesday', detail: 'December 9, 2026' },
-  { icon: Clock3, label: 'THE TIME', title: '9:00 AM', detail: 'Please arrive a little early' },
-  { icon: Waves, label: 'THE CELEBRATION', title: 'Wedding & reception', detail: 'A joyful day by the sea' },
+  { icon: Clock3, label: 'THE TIME', title: '10:30 AM–3:00 PM', detail: 'Please arrive a little early so we can begin together.' },
+  { icon: Waves, label: 'THE CELEBRATION', title: 'Wedding reception', detail: 'A joyful day by the sea' },
 ];
 
 export default function WeddingDetails() {

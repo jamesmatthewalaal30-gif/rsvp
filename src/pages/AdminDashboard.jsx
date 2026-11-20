@@ -55,13 +55,8 @@ export default function AdminDashboard() {
     await loadDashboard();
   }
 
-  async function addGuest(invitationId, guestName) {
-    await adminRequest('admin_add_guest', { invitation_id: invitationId, guest_name: guestName }, password);
-    await loadDashboard();
-  }
-
   async function removeGuest(invitationId, guestId) {
-    if (!window.confirm('Remove this invited guest? Their RSVP record will also be removed.')) return;
+    if (!window.confirm('Remove this registered companion? Their RSVP record will also be removed.')) return;
     try {
       await adminRequest('admin_remove_guest', { invitation_id: invitationId, guest_id: guestId }, password);
       await loadDashboard();
@@ -136,16 +131,17 @@ export default function AdminDashboard() {
     </header>
     <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
       {error && <p role="alert" className="mb-5 border border-[#800020]/20 bg-[#800020]/[.04] p-4 text-sm text-[#800020]">{error}</p>}
-      {summary && <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      {summary && <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
         <Stat label="Invitations" value={summary.total_invitations} />
         <Stat label="Invited guests" value={summary.total_guests} />
         <Stat label="Attending" value={summary.attending} />
+        <Stat label="Seats remaining" value={`${summary.capacity_remaining} / ${summary.capacity}`} />
         <Stat label="Declined" value={summary.declined} />
         <Stat label="Attendance rate" value={`${summary.attendance_percentage}%`} />
       </div>}
       <section className="mt-9 border border-[#c5a15b]/40 bg-white p-5 sm:p-7">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div><h2 className="font-display text-2xl text-[#570b19]">Invitations</h2><p className="mt-1 text-xs text-[#76665c]">{summary?.pending || 0} pending individual responses</p></div>
+          <div><h2 className="font-display text-2xl text-[#570b19]">Invitations</h2><p className="mt-1 text-xs text-[#76665c]">{summary?.pending || 0} pending guest responses</p></div>
           <button onClick={() => setFormOpen(!formOpen)} className="inline-flex items-center gap-2 bg-[#800020] px-4 py-3 text-xs font-semibold text-white"><Plus size={15} /> NEW INVITATION</button>
         </div>
         {formOpen && <InvitationForm onCancel={() => setFormOpen(false)} onSubmit={createInvitation} />}
@@ -155,7 +151,7 @@ export default function AdminDashboard() {
             <input value={invitationQuery} onChange={(event) => setInvitationQuery(event.target.value)} className="focus-ring h-11 w-full border border-[#e4d6c6] pl-10 pr-3 text-sm outline-none" placeholder="Search invitations by guest, type, or ID" />
           </label>
         <div className="mt-5 space-y-3">
-            {filteredInvitations.map((invitation) => <InvitationRow key={invitation.invitation_id} invitation={invitation} onRemove={removeGuest} onEdit={editInvitation} onAddGuest={addGuest} onDelete={deleteInvitation} />)}
+            {filteredInvitations.map((invitation) => <InvitationRow key={invitation.invitation_id} invitation={invitation} onRemove={removeGuest} onEdit={editInvitation} onDelete={deleteInvitation} />)}
             {!filteredInvitations.length && <p className="py-8 text-center text-sm text-[#76665c]">No invitations match your search.</p>}
         </div>
       </section>
@@ -185,10 +181,8 @@ function Stat({ label, value }) {
   return <div className="border border-[#c5a15b]/35 bg-white p-4"><p className="text-[10px] uppercase tracking-[.15em] text-[#73752d]">{label}</p><p className="font-display mt-2 text-3xl text-[#570b19]">{value}</p></div>;
 }
 
-function InvitationRow({ invitation, onRemove, onEdit, onAddGuest, onDelete }) {
+function InvitationRow({ invitation, onRemove, onEdit, onDelete }) {
   const [editing, setEditing] = useState(false);
-  const [adding, setAdding] = useState(false);
-  const [guestName, setGuestName] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -203,7 +197,6 @@ function InvitationRow({ invitation, onRemove, onEdit, onAddGuest, onDelete }) {
         primary_guest_name: form.get('primary_guest_name'),
         guest_type: form.get('guest_type'),
         invitation_code: form.get('invitation_code'),
-        allocated_seats: Number(form.get('allocated_seats')),
       });
       setEditing(false);
     } catch (requestError) {
@@ -213,41 +206,20 @@ function InvitationRow({ invitation, onRemove, onEdit, onAddGuest, onDelete }) {
     }
   }
 
-  async function submitGuest(event) {
-    event.preventDefault();
-    setSaving(true);
-    setError('');
-    try {
-      await onAddGuest(invitation.invitation_id, guestName.trim());
-      setGuestName('');
-      setAdding(false);
-    } catch (requestError) {
-      setError(requestError.message);
-    } finally {
-      setSaving(false);
-    }
-  }
   return <details className="group border border-[#e4d6c6]">
     <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 p-4">
-      <div><p className="font-display text-lg text-[#570b19]">{invitation.primary_guest_name}</p><p className="mt-1 text-xs text-[#76665c]">{invitation.invitation_id} · {invitation.guest_type} · {invitation.allocated_seats} seats</p></div>
-      <span className="text-xs text-[#73752d]">{invitation.guests.length} invited · {invitation.guests.filter((guest) => guest.rsvp_status).length} responded</span>
+      <div><p className="font-display text-lg text-[#570b19]">{invitation.primary_guest_name}</p><p className="mt-1 text-xs text-[#76665c]">{invitation.invitation_id} · {invitation.guest_type} · Up to 2 seats</p></div>
+      <span className="text-xs text-[#73752d]">{invitation.guests.length} registered · {invitation.guests.filter((guest) => guest.rsvp_status).length} responded</span>
     </summary>
     <div className="flex flex-wrap gap-2 border-t border-[#e4d6c6] px-4 py-3">
-      <button onClick={() => { setEditing(!editing); setAdding(false); }} className="border border-[#e4d6c6] px-3 py-2 text-[10px] font-semibold tracking-[.1em] text-[#570b19]">EDIT INVITATION</button>
-      {invitation.guests.length < 2 && <button onClick={() => { setAdding(!adding); setEditing(false); }} className="border border-[#e4d6c6] px-3 py-2 text-[10px] font-semibold tracking-[.1em] text-[#570b19]">ADD COMPANION</button>}
+      <button onClick={() => setEditing(!editing)} className="border border-[#e4d6c6] px-3 py-2 text-[10px] font-semibold tracking-[.1em] text-[#570b19]">EDIT INVITATION</button>
       <button onClick={() => onDelete(invitation.invitation_id)} className="ml-auto inline-flex items-center gap-1 border border-[#800020]/30 px-3 py-2 text-[10px] font-semibold tracking-[.1em] text-[#800020]"><Trash2 size={13} /> DELETE</button>
     </div>
     {editing && <form onSubmit={submitEdit} className="grid gap-3 border-t border-[#e4d6c6] bg-[#fff8ef] p-4 sm:grid-cols-2">
       <label className="text-xs font-semibold">Primary guest<input name="primary_guest_name" required defaultValue={invitation.primary_guest_name} className="focus-ring mt-1 h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal" /></label>
       <label className="text-xs font-semibold">Guest type<input name="guest_type" defaultValue={invitation.guest_type} className="focus-ring mt-1 h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal" /></label>
       <label className="text-xs font-semibold">Invitation code<input name="invitation_code" required defaultValue={invitation.invitation_code} className="focus-ring mt-1 h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal" /></label>
-      <label className="text-xs font-semibold">Allocated seats (maximum 2)<input name="allocated_seats" type="number" min="1" max="2" required defaultValue={invitation.allocated_seats} className="focus-ring mt-1 h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal" /></label>
       <div className="flex justify-end gap-2 sm:col-span-2"><button type="button" onClick={() => setEditing(false)} className="px-3 py-2 text-xs">CANCEL</button><button disabled={saving} className="bg-[#800020] px-4 py-2 text-xs font-semibold text-white">{saving ? 'SAVING…' : 'SAVE CHANGES'}</button></div>
-    </form>}
-    {adding && <form onSubmit={submitGuest} className="flex flex-col gap-2 border-t border-[#e4d6c6] bg-[#fff8ef] p-4 sm:flex-row">
-      <label className="sr-only" htmlFor={`new-guest-${invitation.invitation_id}`}>New guest name</label>
-      <input id={`new-guest-${invitation.invitation_id}`} required value={guestName} onChange={(event) => setGuestName(event.target.value)} placeholder="New guest full name" className="focus-ring h-10 flex-1 border border-[#e4d6c6] bg-white px-3 text-sm" />
-      <button disabled={saving} className="bg-[#800020] px-4 py-2 text-xs font-semibold text-white">{saving ? 'ADDING…' : 'ADD COMPANION'}</button>
     </form>}
     {error && <p role="alert" className="border-t border-[#e4d6c6] px-4 py-3 text-sm text-[#800020]">{error}</p>}
     <div className="divide-y divide-[#eee5db] border-t border-[#e4d6c6] px-4">
@@ -263,25 +235,16 @@ function InvitationForm({ onCancel, onSubmit }) {
   const [primary, setPrimary] = useState('');
   const [type, setType] = useState('');
   const [code, setCode] = useState('');
-  const [names, setNames] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
   async function submit(event) {
     event.preventDefault();
-    const guests = names.split('\n').map((name) => name.trim()).filter(Boolean);
-    if (guests.length > 2) {
-      setError('An invitation can include the primary guest and up to one companion.');
-      return;
-    }
-    if (!guests.length || !guests.some((name) => name.toLowerCase() === primary.trim().toLowerCase())) {
-      setError('Include the primary guest in the invited guest list, one name per line.');
-      return;
-    }
+    if (!primary.trim()) return;
     setSaving(true);
     setError('');
     try {
-      await onSubmit({ primary_guest_name: primary.trim(), guest_type: type.trim(), invitation_code: code.trim(), guest_names: guests });
+      await onSubmit({ primary_guest_name: primary.trim(), guest_type: type.trim(), invitation_code: code.trim(), guest_names: [primary.trim()] });
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -292,7 +255,7 @@ function InvitationForm({ onCancel, onSubmit }) {
     <label className="text-xs font-semibold">Primary guest name<input required value={primary} onChange={(event) => setPrimary(event.target.value)} className="focus-ring mt-2 h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal" /></label>
     <label className="text-xs font-semibold">Guest type<input value={type} onChange={(event) => setType(event.target.value)} className="focus-ring mt-2 h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal" placeholder="Family / Friend" /></label>
     <label className="text-xs font-semibold">Invitation code<input required value={code} onChange={(event) => setCode(event.target.value)} className="focus-ring mt-2 h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal" /></label>
-    <label className="text-xs font-semibold">Guest names (primary guest + up to 1 companion)<textarea required rows={2} value={names} onChange={(event) => setNames(event.target.value)} className="focus-ring mt-2 w-full border border-[#e4d6c6] bg-white p-3 text-sm font-normal" placeholder="Primary guest&#10;Companion" /></label>
+    <p className="text-xs leading-5 text-[#76665c]">Each invitation is for one named guest and may include one companion, registered by the guest during RSVP.</p>
     {error && <p role="alert" className="text-sm text-[#800020] sm:col-span-2">{error}</p>}
     <div className="flex justify-end gap-2 sm:col-span-2"><button type="button" onClick={onCancel} className="border border-[#e4d6c6] px-4 py-2 text-xs">CANCEL</button><button disabled={saving} className="inline-flex items-center gap-2 bg-[#800020] px-4 py-2 text-xs font-semibold text-white disabled:opacity-60">{saving ? 'SAVING…' : <><Plus size={14} /> CREATE INVITATION</>}</button></div>
   </form>;

@@ -3,10 +3,6 @@ import { AlertCircle, ArrowRight, LoaderCircle, Search, TicketCheck } from 'luci
 import { motion } from 'framer-motion';
 import { searchInvitations } from '../services/googleSheets.js';
 
-function guestCount(invitation) {
-  return Number(invitation.allocated_seats || invitation.guests?.length || 0);
-}
-
 export default function GuestSearch({ onSelect }) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
@@ -57,7 +53,7 @@ export default function GuestSearch({ onSelect }) {
             <div>
               <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold tracking-[.16em] text-[#73752d]"><TicketCheck size={14} /> INVITATION FOUND</div>
               <h3 className="font-display text-xl text-[#570b19]">{invitation.primary_guest_name}</h3>
-              <p className="mt-1 text-xs text-[#76665c]">{invitation.guest_type || 'Wedding guest'} <span className="mx-2 text-[#c5a15b]">·</span> {guestCount(invitation)} invited {guestCount(invitation) === 1 ? 'guest' : 'guests'}</p>
+              <p className="mt-1 text-xs text-[#76665c]">{invitation.guest_type || 'Wedding guest'} <span className="mx-2 text-[#c5a15b]">·</span> Up to 2 seats</p>
             </div>
             <button type="button" className="focus-ring inline-flex shrink-0 items-center justify-center gap-2 border border-[#800020] px-5 py-3 text-[10px] font-semibold tracking-[.14em] text-[#800020] transition hover:bg-[#800020] hover:text-white" onClick={() => onSelect(invitation)}>
               VIEW &amp; RSVP <ArrowRight size={14} />

@@ -3,6 +3,9 @@ const SHEET_HEADERS = {
   INVITED_GUESTS: ['guest_id', 'invitation_id', 'guest_name', 'guest_role', 'rsvp_status'],
   RSVP_RESPONSES: ['response_id', 'invitation_id', 'guest_id', 'guest_name', 'attendance_status', 'contact_number', 'submitted_at'],
 };
+const RSVP_DEADLINE = '2026-11-30T23:59:59.999+08:00';
+const RSVP_CAPACITY = 60;
+const COMPANION_MIGRATION_PROPERTY = 'COMPANION_GUEST_MIGRATION_V1';
 
 function setupSheets() {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
@@ -16,7 +19,25 @@ function setupSheets() {
     sheet.setFrozenRows(1);
     sheet.getRange(1, 1, sheet.getMaxRows(), headers.length).setNumberFormat('@');
   });
+  const properties = PropertiesService.getScriptProperties();
+  if (properties.getProperty(COMPANION_MIGRATION_PROPERTY) !== 'true') {
+    migrateCompanionGuests_();
+    properties.setProperty(COMPANION_MIGRATION_PROPERTY, 'true');
+  }
   return 'Sheets are ready. Set ADMIN_PASSWORD in Project Settings > Script properties before deploying.';
+}
+
+function migrateCompanionGuests_() {
+  const guestSheet = sheet_('INVITED_GUESTS');
+  records_('INVITED_GUESTS').filter(function (guest) { return guest.guest_role === 'Companion'; })
+    .sort(function (a, b) { return b._row - a._row; })
+    .forEach(function (guest) {
+      deleteMatchingRows_('RSVP_RESPONSES', 'guest_id', guest.guest_id);
+      guestSheet.deleteRow(guest._row);
+    });
+  records_('INVITATIONS').forEach(function (invitation) {
+    sheet_('INVITATIONS').getRange(invitation._row, 5).setValue(2);
+  });
 }
 
 function removeDietaryRestrictionsColumn_(sheet) {
@@ -59,10 +80,6 @@ function doPost(event) {
       case 'admin_edit_invitation':
         requireAdmin_(payload.admin_password);
         data = adminEditInvitation_(payload);
-        break;
-      case 'admin_add_guest':
-        requireAdmin_(payload.admin_password);
-        data = adminAddGuest_(payload);
         break;
       case 'admin_remove_guest':
         requireAdmin_(payload.admin_password);
@@ -124,12 +141,14 @@ function verifyInvitation_(invitationId, invitationCode) {
   validateSeatCount_(invitation, guests);
   validateCompanionLimit_(guests);
   const responses = responseIndex_(invitation.invitation_id);
+  const primaryGuest = guests.filter(function (guest) { return guest.guest_role === 'Primary Guest'; })[0];
   return {
     invitation: {
       invitation_id: invitation.invitation_id,
       primary_guest_name: invitation.primary_guest_name,
       guest_type: invitation.guest_type,
       allocated_seats: Number(invitation.allocated_seats),
+      contact_number: responses[primaryGuest.guest_id] ? responses[primaryGuest.guest_id].contact_number : '',
       guests: guests.map(function (guest) {
         const response = responses[guest.guest_id];
         return {
@@ -144,15 +163,7 @@ function verifyInvitation_(invitationId, invitationCode) {
 }
 
 function submitRsvp_(payload) {
-  const properties = PropertiesService.getScriptProperties();
-  const deadline = properties.getProperty('RSVP_DEADLINE');
-  if (deadline) {
-    const deadlineTime = new Date(deadline).getTime();
-    if (!Number.isFinite(deadlineTime)) throw apiError_('invalid_config', 'The RSVP deadline is configured incorrectly. Please contact the wedding organizers.');
-    if (new Date().getTime() > deadlineTime) {
-      throw apiError_('rsvp_closed', 'The RSVP deadline has passed. Please contact the wedding organizers if you need to make a change.');
-    }
-  }
+  if (!isRsvpOpen_(new Date())) throw apiError_('rsvp_closed', 'The RSVP deadline has passed. Please contact Kym if you need to make a change.');
 
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) throw apiError_('busy', 'The RSVP service is busy. Please try again in a moment.');
@@ -164,55 +175,81 @@ function submitRsvp_(payload) {
     const guests = getInvitationGuests_(invitation.invitation_id);
     validateSeatCount_(invitation, guests);
     validateCompanionLimit_(guests);
-    const submitted = payload.responses;
-    if (!Array.isArray(submitted) || submitted.length !== guests.length) {
-      throw apiError_('invalid_guests', 'Please submit a response for every invited guest.');
+    const status = payload.attendance_status;
+    if (status !== 'attending' && status !== 'declined') {
+      throw apiError_('invalid_status', 'Choose Joyfully accepts or Regretfully declines.');
     }
-    const allowed = {};
-    guests.forEach(function (guest) { allowed[guest.guest_id] = guest; });
-    const seen = {};
-    submitted.forEach(function (response) {
-      if (!response || !allowed[response.guest_id] || seen[response.guest_id]) {
-        throw apiError_('invalid_guests', 'This RSVP includes an unknown or duplicate guest.');
-      }
-      if (response.attendance_status !== 'attending' && response.attendance_status !== 'declined') {
-        throw apiError_('invalid_status', 'Choose attending or not attending for every invited guest.');
-      }
-      seen[response.guest_id] = true;
-    });
-    if (Object.keys(seen).length !== guests.length) {
-      throw apiError_('invalid_guests', 'Please submit a response for every invited guest.');
+    if (typeof payload.bring_companion !== 'boolean' || (status === 'declined' && payload.bring_companion)) {
+      throw apiError_('invalid_companion', 'A companion can only be registered with an accepted RSVP.');
     }
-
-    const contact = cleanText_(payload.contact_number, 40);
+    const primary = guests.filter(function (guest) { return guest.guest_role === 'Primary Guest'; })[0];
+    let companion = guests.filter(function (guest) { return guest.guest_role === 'Companion'; })[0];
+    const companionName = payload.bring_companion ? cleanRequired_(payload.companion_name, 120, 'Companion full name') : '';
+    if (companionName && companionName.toLowerCase() === primary.guest_name.toLowerCase()) {
+      throw apiError_('duplicate_guest', 'The companion name must be different from the invited guest name.');
+    }
+    const contact = cleanRequired_(payload.contact_number, 40, 'Mobile number');
     const responseSheet = sheet_('RSVP_RESPONSES');
     const guestSheet = sheet_('INVITED_GUESTS');
     const existingRows = records_('RSVP_RESPONSES');
-    const guestRows = records_('INVITED_GUESTS');
+    const responseIds = {};
+    existingRows.forEach(function (row) {
+      if (responseIds[row.guest_id]) throw apiError_('duplicate_response', 'Duplicate response records need to be resolved by the wedding organizers.');
+      responseIds[row.guest_id] = true;
+    });
+    const oldAttending = existingRows.filter(function (row) {
+      return row.invitation_id === invitation.invitation_id && row.attendance_status === 'attending';
+    }).length;
+    const nextAttending = status === 'attending' ? (payload.bring_companion ? 2 : 1) : 0;
+    const totalAttending = existingRows.filter(function (row) { return row.attendance_status === 'attending'; }).length;
+    if (totalAttending - oldAttending + nextAttending > RSVP_CAPACITY) {
+      throw apiError_('capacity_reached', 'The celebration has reached its 60-seat capacity. Please contact Kym for help.');
+    }
+
     const now = new Date().toISOString();
-    const results = submitted.map(function (response) {
-      const guest = allowed[response.guest_id];
-      const rows = existingRows.filter(function (record) { return record.guest_id === guest.guest_id; });
-      if (rows.length > 1) throw apiError_('duplicate_response', 'Duplicate response records need to be resolved by the wedding organizers.');
+    if (!payload.bring_companion && companion) {
+      deleteMatchingRows_('RSVP_RESPONSES', 'guest_id', companion.guest_id);
+      guestSheet.deleteRow(companion._row);
+    } else if (payload.bring_companion && companion) {
+      guestSheet.getRange(companion._row, 3).setValue(companionName);
+      updateResponseGuestNames_(companion.guest_id, companionName);
+    } else if (payload.bring_companion) {
+      companion = {
+        guest_id: Utilities.getUuid(),
+        invitation_id: invitation.invitation_id,
+        guest_name: companionName,
+        guest_role: 'Companion',
+      };
+      guestSheet.appendRow([companion.guest_id, invitation.invitation_id, companionName, 'Companion', '']);
+    }
+    const currentGuests = getInvitationGuests_(invitation.invitation_id);
+    currentGuests.forEach(function (guest) {
+      const attendance = guest.guest_role === 'Primary Guest' ? status : 'attending';
+      guestSheet.getRange(guest._row, 5).setValue(attendance);
+      const existing = records_('RSVP_RESPONSES').filter(function (row) { return row.guest_id === guest.guest_id; })[0];
       const record = [
-        rows.length ? rows[0].response_id : Utilities.getUuid(),
+        existing ? existing.response_id : Utilities.getUuid(),
         invitation.invitation_id,
         guest.guest_id,
         guest.guest_name,
-        response.attendance_status,
-        contact,
+        attendance,
+        guest.guest_role === 'Primary Guest' ? contact : '',
         now,
       ];
-      if (rows.length) responseSheet.getRange(rows[0]._row, 1, 1, record.length).setValues([record]);
+      if (existing) responseSheet.getRange(existing._row, 1, 1, record.length).setValues([record]);
       else responseSheet.appendRow(record);
-      const guestRecord = guestRows.filter(function (row) { return row.guest_id === guest.guest_id; })[0];
-      guestSheet.getRange(guestRecord._row, 5).setValue(response.attendance_status);
-      return { guest_id: guest.guest_id, guest_name: guest.guest_name, attendance_status: response.attendance_status };
+    });
+    const results = getInvitationGuests_(invitation.invitation_id).map(function (guest) {
+      return { guest_id: guest.guest_id, guest_name: guest.guest_name, attendance_status: status === 'attending' ? 'attending' : 'declined' };
     });
     return { responses: results };
   } finally {
     lock.releaseLock();
   }
+}
+
+function isRsvpOpen_(now) {
+  return now.getTime() <= new Date(RSVP_DEADLINE).getTime();
 }
 
 function adminDashboard_() {
@@ -225,6 +262,11 @@ function adminDashboard_() {
     if (responsesByGuest[response.guest_id]) throw apiError_('duplicate_response', 'Duplicate response records need to be resolved by the wedding organizers.');
     responsesByGuest[response.guest_id] = response;
   });
+  const contactsByInvitation = {};
+  guests.forEach(function (guest) {
+    const response = responsesByGuest[guest.guest_id];
+    if (guest.guest_role === 'Primary Guest' && response) contactsByInvitation[guest.invitation_id] = response.contact_number || '';
+  });
   const invited = guests.map(function (guest) {
     const response = responsesByGuest[guest.guest_id] || {};
     return {
@@ -233,7 +275,7 @@ function adminDashboard_() {
       guest_name: guest.guest_name,
       guest_role: guest.guest_role,
       attendance_status: response.attendance_status || '',
-      contact_number: response.contact_number || '',
+      contact_number: contactsByInvitation[guest.invitation_id] || '',
       submitted_at: response.submitted_at || '',
     };
   });
@@ -245,6 +287,8 @@ function adminDashboard_() {
       total_invitations: invitations.length,
       total_guests: guests.length,
       attending: attending,
+      capacity: RSVP_CAPACITY,
+      capacity_remaining: Math.max(0, RSVP_CAPACITY - attending),
       declined: declined,
       pending: guests.length - responded,
       attendance_percentage: guests.length ? Math.round(attending / guests.length * 100) : 0,
@@ -283,13 +327,13 @@ function adminCreateInvitation_(payload) {
       throw apiError_('duplicate_code', 'That invitation code is already in use.');
     }
     const invitationId = 'WED-' + Utilities.getUuid().slice(0, 8).toUpperCase();
-    sheet_('INVITATIONS').appendRow([invitationId, primary, code, guestType, names.length, new Date().toISOString()]);
+    sheet_('INVITATIONS').appendRow([invitationId, primary, code, guestType, 2, new Date().toISOString()]);
     names.forEach(function (name) {
       sheet_('INVITED_GUESTS').appendRow([
         Utilities.getUuid(),
         invitationId,
         name,
-        name.toLowerCase() === primary.toLowerCase() ? 'Primary Guest' : 'Companion',
+        'Primary Guest',
         '',
       ]);
     });
@@ -305,10 +349,8 @@ function adminEditInvitation_(payload) {
     const code = cleanRequired_(payload.invitation_code, 100, 'Invitation code');
     const guestType = cleanText_(payload.guest_type, 80);
     const guests = getInvitationGuests_(invitation.invitation_id);
-    const seats = Number(payload.allocated_seats);
-    if (!Number.isInteger(seats) || seats !== guests.length || seats > 2) {
-      throw apiError_('seat_mismatch', 'Allocated seats must exactly match the number of invited individuals.');
-    }
+    validateSeatCount_(invitation, guests);
+    const seats = 2;
     const primaryGuests = guests.filter(function (guest) { return guest.guest_role === 'Primary Guest'; });
     if (primaryGuests.length !== 1) throw apiError_('invalid_invitation', 'This invitation must have exactly one primary guest.');
     if (guests.some(function (guest) {
@@ -326,25 +368,6 @@ function adminEditInvitation_(payload) {
   });
 }
 
-function adminAddGuest_(payload) {
-  return withLock_(function () {
-    const invitation = findInvitation_(payload.invitation_id);
-    if (!invitation) throw apiError_('not_found', 'Invitation not found.');
-    const name = cleanRequired_(payload.guest_name, 120, 'Guest name');
-    const guests = getInvitationGuests_(invitation.invitation_id);
-    validateSeatCount_(invitation, guests);
-    if (guests.length >= 2) {
-      throw apiError_('companion_limit', 'An invitation can include only one companion.');
-    }
-    if (guests.some(function (guest) { return guest.guest_name.toLowerCase() === name.toLowerCase(); })) {
-      throw apiError_('duplicate_guest', 'This guest is already included in the invitation.');
-    }
-    sheet_('INVITED_GUESTS').appendRow([Utilities.getUuid(), invitation.invitation_id, name, 'Companion', '']);
-    sheet_('INVITATIONS').getRange(invitation._row, 5).setValue(guests.length + 1);
-    return { invitation_id: invitation.invitation_id };
-  });
-}
-
 function adminRemoveGuest_(payload) {
   return withLock_(function () {
     const invitation = findInvitation_(payload.invitation_id);
@@ -356,7 +379,6 @@ function adminRemoveGuest_(payload) {
     if (guest.guest_role === 'Primary Guest') throw apiError_('primary_guest', 'Edit the primary guest name instead of removing the primary guest.');
     deleteMatchingRows_('RSVP_RESPONSES', 'guest_id', guest.guest_id);
     sheet_('INVITED_GUESTS').deleteRow(guest._row);
-    sheet_('INVITATIONS').getRange(invitation._row, 5).setValue(guests.length - 1);
     return { invitation_id: invitation.invitation_id };
   });
 }
@@ -373,21 +395,25 @@ function adminDeleteInvitation_(payload) {
 }
 
 function validateGuestNames_(input, primary) {
-  if (!Array.isArray(input) || !input.length || input.length > 2) {
-    throw apiError_('invalid_guests', 'An invitation can include the primary guest and up to one companion.');
+  if (!Array.isArray(input) || input.length !== 1) {
+    throw apiError_('invalid_guests', 'Add only the invited guest here; companions register with the RSVP.');
   }
   const names = input.map(function (name) { return cleanRequired_(name, 120, 'Guest name'); });
-  const normalized = names.map(function (name) { return name.toLowerCase(); });
-  if (normalized.indexOf(primary.toLowerCase()) === -1) {
+  if (names[0].toLowerCase() !== primary.toLowerCase()) {
     throw apiError_('primary_guest_required', 'The primary guest must be included in the invited guest list.');
   }
-  if (new Set(normalized).size !== normalized.length) throw apiError_('duplicate_guest', 'Guest names on an invitation must be unique.');
   return names;
 }
 
 function validateSeatCount_(invitation, guests) {
-  if (!Number.isInteger(Number(invitation.allocated_seats)) || Number(invitation.allocated_seats) !== guests.length) {
-    throw apiError_('seat_mismatch', 'This invitation has an incorrect seat allocation. Please contact the wedding organizers.');
+  const seats = Number(invitation.allocated_seats);
+  const primaryCount = guests.filter(function (guest) { return guest.guest_role === 'Primary Guest'; }).length;
+  const companionCount = guests.filter(function (guest) { return guest.guest_role === 'Companion'; }).length;
+  const names = guests.map(function (guest) { return guest.guest_name.toLowerCase(); });
+  if (!Number.isInteger(seats) || seats < 1 || seats > 2 || guests.length < 1 || guests.length > seats ||
+      primaryCount !== 1 || companionCount > 1 || primaryCount + companionCount !== guests.length ||
+      new Set(names).size !== names.length) {
+    throw apiError_('seat_mismatch', 'This invitation has an incorrect seat allocation or guest list. Please contact the wedding organizers.');
   }
 }
 

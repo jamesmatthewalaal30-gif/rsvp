@@ -2,7 +2,7 @@ import { ArrowUpRight, MapPin } from 'lucide-react';
 import { motion } from 'framer-motion';
 import SectionHeading from './SectionHeading.jsx';
 
-const mapUrl = 'https://www.google.com/maps/search/?api=1&query=Casamara+Beach+Resort+Baybay+Roxas+City';
+const mapUrl = 'https://www.google.com/maps/search/?api=1&query=Casamara+Beach+Resort+Baybay+Roxas+City+Capiz+Philippines';
 
 export default function Venue() {
   return (
@@ -23,7 +23,7 @@ export default function Venue() {
           <iframe
             title="Map showing Casamara Beach Resort in Roxas City"
             className="h-[310px] w-full border-0 md:h-full md:min-h-[360px]"
-            src="https://maps.google.com/maps?q=Casamara%20Beach%20Resort%2C%20Roxas%20City&t=&z=14&ie=UTF8&iwloc=&output=embed"
+            src="https://maps.google.com/maps?q=Casamara%20Beach%20Resort%2C%20Baybay%2C%20Roxas%20City%2C%20Capiz%2C%20Philippines&t=&z=14&ie=UTF8&iwloc=&output=embed"
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
           />

@@ -5,11 +5,12 @@ import { submitRsvp, verifyInvitation } from '../services/googleSheets.js';
 export default function RSVPForm({ invitation, onBack, onSuccess }) {
   const [verified, setVerified] = useState(null);
   const [code, setCode] = useState('');
-  const [statuses, setStatuses] = useState({});
+  const [attendance, setAttendance] = useState('');
+  const [bringCompanion, setBringCompanion] = useState(null);
+  const [companionName, setCompanionName] = useState('');
   const [contact, setContact] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [confirmed, setConfirmed] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const cancelButtonRef = useRef(null);
 
@@ -33,8 +34,13 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
     try {
       const result = await verifyInvitation(invitation.invitation_id, code.trim());
       const details = result.invitation;
+      const primary = details.guests.find((guest) => guest.guest_role === 'Primary Guest');
+      const companion = details.guests.find((guest) => guest.guest_role === 'Companion');
       setVerified(details);
-      setStatuses(Object.fromEntries(details.guests.map((guest) => [guest.guest_id, guest.rsvp_status || ''])));
+      setAttendance(primary?.rsvp_status || '');
+      setBringCompanion(Boolean(companion && primary?.rsvp_status === 'attending'));
+      setCompanionName(companion?.guest_name || '');
+      setContact(details.contact_number || '');
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -44,8 +50,20 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
 
   function handleSubmit(event) {
     event.preventDefault();
-    if (!verified || !verified.guests.every((guest) => ['attending', 'declined'].includes(statuses[guest.guest_id]))) {
-      setError('Please choose attending or not attending for every person on this invitation.');
+    if (!verified || !['attending', 'declined'].includes(attendance)) {
+      setError('Please choose Joyfully accepts or Regretfully declines.');
+      return;
+    }
+    if (!contact.trim()) {
+      setError('Please enter one mobile number for this invitation.');
+      return;
+    }
+    if (attendance === 'attending' && typeof bringCompanion !== 'boolean') {
+      setError('Please choose Yes or No for bringing a companion.');
+      return;
+    }
+    if (attendance === 'attending' && bringCompanion && !companionName.trim()) {
+      setError('Please enter your companion’s full name.');
       return;
     }
     setError('');
@@ -59,10 +77,11 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
       const result = await submitRsvp({
         invitation_id: verified.invitation_id,
         invitation_code: code.trim(),
-        responses: verified.guests.map((guest) => ({ guest_id: guest.guest_id, attendance_status: statuses[guest.guest_id] })),
+        attendance_status: attendance,
+        bring_companion: attendance === 'attending' && bringCompanion,
+        companion_name: attendance === 'attending' && bringCompanion ? companionName.trim() : '',
         contact_number: contact.trim(),
       });
-      setConfirmed(true);
       onSuccess({ invitation: verified, responses: result.responses });
     } catch (requestError) {
       setError(requestError.message);
@@ -89,46 +108,56 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
     </div>
   </div>;
 
-  if (confirmed) return null;
-
-  const attendingCount = verified.guests.filter((guest) => statuses[guest.guest_id] === 'attending').length;
-  const declinedCount = verified.guests.filter((guest) => statuses[guest.guest_id] === 'declined').length;
-
   return <>
     <div className="mx-auto max-w-2xl text-left">
       <button className="focus-ring mb-6 inline-flex items-center gap-2 text-xs font-semibold tracking-[.12em] text-[#800020]" onClick={() => { setVerified(null); onBack(); }}><ArrowLeft size={15} /> BACK TO SEARCH</button>
       <div className="border border-[#c5a15b]/50 bg-white p-6 sm:p-8">
         <p className="text-[10px] font-semibold tracking-[.2em] text-[#73752d]">YOUR INVITATION</p>
         <h3 className="font-display mt-2 text-2xl text-[#570b19]">{verified.primary_guest_name}</h3>
-        <p className="mt-2 text-sm text-[#76665c]">Please let us know for each person included in your invitation.</p>
+        <p className="mt-2 text-sm text-[#76665c]">Please submit one RSVP for yourself and your companion, if bringing one.</p>
         <form onSubmit={handleSubmit} className="mt-7">
-          <div className="divide-y divide-[#c5a15b]/25 border-y border-[#c5a15b]/35">
-            {verified.guests.map((guest) => <fieldset key={guest.guest_id} className="py-5">
-              <legend className="mb-3 w-full">
-                <span className="font-display text-lg text-[#39251f]">{guest.guest_name}</span>
-                <span className="ml-2 text-xs text-[#8d7a70]">{guest.guest_role}</span>
-              </legend>
-              <div className="flex flex-wrap gap-3">
-                {[
-                  ['attending', 'Joyfully accepts'],
-                  ['declined', 'Regretfully declines'],
-                ].map(([value, label]) => <label key={value} className={`flex cursor-pointer items-center gap-2 border px-3 py-2.5 text-xs transition ${statuses[guest.guest_id] === value ? 'border-[#800020] bg-[#800020]/[.045] text-[#570b19]' : 'border-[#e8d9c8] text-[#76665c]'}`}>
-                  <input type="radio" name={`attendance-${guest.guest_id}`} value={value} checked={statuses[guest.guest_id] === value} onChange={() => setStatuses((current) => ({ ...current, [guest.guest_id]: value }))} className="accent-[#800020]" />
-                  {label}
-                </label>)}
-              </div>
-            </fieldset>)}
-          </div>
+          <fieldset>
+            <legend className="mb-3 text-xs font-semibold text-[#39251f]">Your response</legend>
+            <div className="flex flex-wrap gap-3">
+              {[
+                ['attending', 'Joyfully accepts'],
+                ['declined', 'Regretfully declines'],
+              ].map(([value, label]) => <label key={value} className={`flex cursor-pointer items-center gap-2 border px-3 py-2.5 text-xs transition ${attendance === value ? 'border-[#800020] bg-[#800020]/[.045] text-[#570b19]' : 'border-[#e8d9c8] text-[#76665c]'}`}>
+                <input type="radio" name="attendance" value={value} checked={attendance === value} onChange={() => {
+                  if (value === 'declined') {
+                    setBringCompanion(false);
+                    setCompanionName('');
+                  } else if (attendance === 'declined') {
+                    setBringCompanion(null);
+                  }
+                  setAttendance(value);
+                }} className="accent-[#800020]" />
+                {label}
+              </label>)}
+            </div>
+          </fieldset>
+          {attendance === 'attending' && <fieldset className="mt-6">
+            <legend className="mb-3 text-xs font-semibold text-[#39251f]">Will you bring a companion?</legend>
+            <div className="flex gap-3">
+              {[['yes', true], ['no', false]].map(([label, value]) => <label key={label} className={`flex cursor-pointer items-center gap-2 border px-4 py-2.5 text-xs transition ${bringCompanion === value ? 'border-[#800020] bg-[#800020]/[.045] text-[#570b19]' : 'border-[#e8d9c8] text-[#76665c]'}`}>
+                <input type="radio" name="bring-companion" checked={bringCompanion === value} onChange={() => { setBringCompanion(value); if (!value) setCompanionName(''); }} className="accent-[#800020]" />
+                {label === 'yes' ? 'Yes' : 'No'}
+              </label>)}
+            </div>
+          </fieldset>}
+          {attendance === 'attending' && bringCompanion && <label className="mt-5 block text-xs font-semibold text-[#39251f]">Companion’s full name
+            <input value={companionName} onChange={(event) => setCompanionName(event.target.value)} required maxLength={120} autoComplete="name" className="focus-ring mt-2 h-11 w-full border border-[#e4d6c6] px-3 text-sm font-normal outline-none" />
+          </label>}
           <div className="mt-6">
-            <label className="text-xs font-semibold text-[#39251f]">Contact number <span className="font-normal text-[#8d7a70]">(optional)</span>
-              <input value={contact} onChange={(event) => setContact(event.target.value)} maxLength={40} autoComplete="tel" className="focus-ring mt-2 h-11 w-full border border-[#e4d6c6] px-3 text-sm font-normal outline-none" />
+            <label className="text-xs font-semibold text-[#39251f]">Mobile number
+              <input value={contact} onChange={(event) => setContact(event.target.value)} required maxLength={40} autoComplete="tel" inputMode="tel" className="focus-ring mt-2 h-11 w-full border border-[#e4d6c6] px-3 text-sm font-normal outline-none" />
             </label>
           </div>
-          {error && !confirmOpen && <ErrorMessage>{error}</ErrorMessage>}
+          {error && <ErrorMessage>{error}</ErrorMessage>}
           <button type="submit" disabled={loading} className="mt-7 inline-flex h-12 w-full items-center justify-center gap-2 bg-[#800020] text-xs font-semibold tracking-[.14em] text-white transition hover:bg-[#570b19] disabled:cursor-wait disabled:opacity-60">
-            CONFIRM YOUR RSVP
+            CONFIRM YOUR ATTENDANCE
           </button>
-          <p className="mt-3 text-center text-[11px] text-[#8d7a70]">Your responses can be updated until the RSVP deadline.</p>
+          <p className="mt-3 text-center text-[11px] text-[#8d7a70]">Please RSVP by November 30, 2026.</p>
         </form>
       </div>
     </div>
@@ -137,18 +166,9 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
         <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-full border border-[#c5a15b]/55 bg-white text-[#800020]"><Check size={19} /></div>
         <p className="mt-5 text-center text-[10px] font-semibold tracking-[.22em] text-[#73752d]">ONE LAST LOOK</p>
         <h3 id="rsvp-confirm-title" className="font-display mt-2 text-center text-2xl text-[#570b19]">Confirm your RSVP</h3>
-        <p id="rsvp-confirm-description" className="mt-2 text-center text-sm text-[#76665c]">You’re responding for {verified.primary_guest_name}’s invitation.</p>
-        <div className="mt-6 grid grid-cols-2 gap-3">
-          <div className="border border-[#73752d]/25 bg-white p-4 text-center">
-            <p className="font-display text-2xl text-[#73752d]">{attendingCount}</p>
-            <p className="mt-1 text-[10px] font-semibold uppercase tracking-[.12em] text-[#76665c]">Attending</p>
-          </div>
-          <div className="border border-[#800020]/20 bg-white p-4 text-center">
-            <p className="font-display text-2xl text-[#800020]">{declinedCount}</p>
-            <p className="mt-1 text-[10px] font-semibold uppercase tracking-[.12em] text-[#76665c]">Not attending</p>
-          </div>
-        </div>
-        <p className="mt-4 text-center text-xs leading-5 text-[#8d7a70]">You can update these responses again before the RSVP deadline.</p>
+        <p id="rsvp-confirm-description" className="mt-2 text-center text-sm text-[#76665c]">You’re responding for {verified.primary_guest_name}.</p>
+        <p className="mt-5 text-center text-sm text-[#76665c]">{attendance === 'attending' ? `Seats reserved: ${bringCompanion ? 2 : 1}` : 'Regretfully declines'}</p>
+        {bringCompanion && <p className="mt-1 text-center text-sm text-[#570b19]">{companionName}</p>}
         {error && <ErrorMessage>{error}</ErrorMessage>}
         <div className="mt-6 grid gap-2 sm:grid-cols-2">
           <button ref={cancelButtonRef} type="button" disabled={loading} onClick={() => { setConfirmOpen(false); setError(''); }} className="focus-ring h-12 border border-[#c5a15b]/70 px-4 text-xs font-semibold tracking-[.1em] text-[#570b19] transition hover:bg-white disabled:opacity-50">REVIEW MY ANSWERS</button>
