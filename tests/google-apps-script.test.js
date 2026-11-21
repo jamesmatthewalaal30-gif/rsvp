@@ -263,6 +263,17 @@ test('RSVP requires a mobile number and companion name and rejects duplicate nam
   assert.equal(noCompanion.data.responses.length, 1);
   assert.equal(service.sheets.get('RSVP_RESPONSES').rows.length, 2);
   assert.equal(service.sheets.get('INVITED_GUESTS').rows.length, 2);
+
+  const declineWithoutMobile = service.post({
+    ...payload,
+    attendance_status: 'declined',
+    bring_companion: false,
+    companion_name: '',
+    contact_number: '',
+  });
+  assert.equal(declineWithoutMobile.ok, true);
+  assert.equal(declineWithoutMobile.data.responses[0].attendance_status, 'declined');
+  assert.equal(service.sheets.get('RSVP_RESPONSES').rows[1][5], '');
 });
 
 test('admin can add or rename one companion without confirming their RSVP', () => {

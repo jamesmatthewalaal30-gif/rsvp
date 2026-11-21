@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { Menu, X } from 'lucide-react';
 
 const links = [
-  ['Ceremony', '#ceremony'],
-  ['The Venue', '#venue'],
+  ['Home', '#home'],
+  ['Wedding Details', '#wedding-day'],
   ['Attire', '#attire'],
   ['RSVP', '#rsvp'],
 ];
@@ -16,7 +16,6 @@ export default function Navbar() {
         <a href="#home" className="focus-ring font-display text-xl font-semibold tracking-wide text-[#570b19]">N<span className="mx-1 text-[#c5a15b]">&amp;</span>K</a>
         <div className="hidden items-center gap-8 md:flex">
           {links.map(([label, href]) => <a className="focus-ring text-xs font-medium tracking-[.12em] text-[#58433b] transition hover:text-[#800020]" href={href} key={href}>{label}</a>)}
-          <a className="rounded-full bg-[#800020] px-5 py-2.5 text-xs font-semibold tracking-[.12em] text-white transition hover:bg-[#570b19]" href="#rsvp">CONFIRM YOUR ATTENDANCE</a>
         </div>
         <button className="focus-ring rounded-full p-2 text-[#570b19] md:hidden" onClick={() => setOpen(!open)} aria-label={open ? 'Close menu' : 'Open menu'} aria-expanded={open}>
           {open ? <X size={22} /> : <Menu size={22} />}

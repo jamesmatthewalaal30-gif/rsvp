@@ -208,7 +208,9 @@ function submitRsvp_(payload) {
     if (companionName && companionName.toLowerCase() === primary.guest_name.toLowerCase()) {
       throw apiError_('duplicate_guest', 'The additional guest’s name must be different from the invited guest’s name.');
     }
-    const contact = cleanRequired_(payload.contact_number, 40, 'Mobile number');
+    const contact = status === 'attending'
+      ? cleanRequired_(payload.contact_number, 40, 'Mobile number')
+      : cleanText_(payload.contact_number, 40);
     const responseSheet = sheet_('RSVP_RESPONSES');
     const guestSheet = sheet_('INVITED_GUESTS');
     const existingRows = records_('RSVP_RESPONSES');
