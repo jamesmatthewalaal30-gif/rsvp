@@ -11,7 +11,7 @@ import WeddingQA from '../components/WeddingQA.jsx';
 import Welcome from '../components/Welcome.jsx';
 import { Volume2, VolumeX } from 'lucide-react';
 
-const musicUrl = '/You%20To%20Me%20Are%20Everything%20-%20Chelsey%20Johnson%20(Official%20Lyric%20Video).mp3';
+const musicUrl = '/Wedding%20Song.m4a';
 
 export default function Home() {
   const location = useLocation();
