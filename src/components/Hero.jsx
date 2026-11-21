@@ -48,7 +48,7 @@ export default function Hero({ isRevealed = false }) {
         </motion.div>
         <motion.div variants={itemVariants}>
           <p className="mx-auto mt-7 max-w-xl font-display text-lg italic leading-8 text-[#76665c] sm:text-xl">“He hath made every thing beautiful in his time.”</p>
-          <p className="mt-2 text-xs tracking-[.12em] text-[#73752d]">Ecclesiastes 3:11 · KJV</p>
+          <p className="mt-2 text-xs italic tracking-[.12em] text-[#73752d]">Ecclesiastes 3:11 · KJV</p>
         </motion.div>
         <motion.div variants={itemVariants} className="mx-auto mt-6 flex w-fit items-center gap-2 border-y border-[#c5a15b]/60 py-3 font-display text-base text-[#570b19] sm:text-lg">
           <CalendarDays size={16} className="text-[#c5a15b]" />

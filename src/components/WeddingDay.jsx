@@ -65,8 +65,8 @@ export default function WeddingDay() {
           <p className="mb-3 text-[11px] font-semibold uppercase tracking-[.28em] text-[#73752d]">Wednesday, December 9, 2026</p>
           <h2 className="font-display text-4xl leading-tight text-[#570b19] sm:text-5xl">Our Wedding Day</h2>
         </div>
-        <div className="grid gap-4 md:grid-cols-[.9fr_1.1fr] md:gap-6">
-          <article className="border border-[#c5a15b]/55 bg-white/80 p-6 sm:p-8">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-[.9fr_1.1fr] md:gap-x-6 md:gap-y-5">
+          <article className="order-1 border border-[#c5a15b]/55 bg-white/80 p-6 md:order-none sm:p-8">
             <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-full bg-[#73752d]/10 text-[#73752d]"><Church size={20} strokeWidth={1.6} /></div>
             <p className="text-[10px] font-semibold uppercase tracking-[.22em] text-[#73752d]">CEREMONY</p>
             <h3 className="font-display mt-2 text-2xl text-[#570b19]">Wedding Ceremony</h3>
@@ -74,7 +74,7 @@ export default function WeddingDay() {
             <p className="mt-2 flex items-center gap-2 text-sm text-[#39251f]"><MapPin size={16} className="shrink-0 text-[#c5a15b]" /> Panay City Hall</p>
             <p className="mt-3 text-sm leading-6 text-[#76665c]">For our principal sponsors, our Ninongs and Ninangs, only.</p>
           </article>
-          <article className="relative overflow-hidden border border-[#c5a15b]/70 bg-[#800020] p-6 text-[#fff8ef] shadow-[0_14px_40px_rgba(87,11,25,.14)] sm:p-8">
+          <article className="order-3 relative overflow-hidden border border-[#c5a15b]/70 bg-[#800020] p-6 text-[#fff8ef] shadow-[0_14px_40px_rgba(87,11,25,.14)] md:order-none sm:p-8">
             <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full border border-[#c5a15b]/30" />
             <div className="relative">
               <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-[#e2c58f]"><Waves size={20} strokeWidth={1.6} /></div>
@@ -86,9 +86,12 @@ export default function WeddingDay() {
               <p className="mt-4 text-sm leading-6 text-[#f6e8d9]">For all invited guests. Please arrive a little early so we can begin together.</p>
             </div>
           </article>
-        </div>
-        <div className="mt-5 grid gap-3 md:mt-6 md:grid-cols-2 md:gap-4">
-          {directions.map((panel) => <MapPanel key={panel.id} panel={panel} />)}
+          <div className="order-2 md:order-none">
+            <MapPanel panel={directions[0]} />
+          </div>
+          <div className="order-4 md:order-none">
+            <MapPanel panel={directions[1]} />
+          </div>
         </div>
       </div>
     </section>

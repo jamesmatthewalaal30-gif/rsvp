@@ -8,9 +8,17 @@ export default function Welcome() {
     <section className="paper-texture px-4 py-14 sm:py-20">
       <div className="section-shell text-center">
         <div className="ornament-line mx-auto w-fit text-xl">❧</div>
-        <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[#76665c] sm:text-lg">
-          Together with our families, we invite you to celebrate our marriage. We’re grateful to share this special day with the people who mean so much to us.
-        </p>
+        <div className="mx-auto mt-7 max-w-xl">
+          <p className="font-display text-xl uppercase leading-7 text-[#bd7f86]">Join us at the reception</p>
+          <p className="mt-3 text-xs font-semibold uppercase tracking-[.24em] text-[#76665c]">Celebration of our civil wedding</p>
+          <p className="mt-4 text-base leading-8 text-[#76665c] sm:text-lg">
+            As we will be having a private and intimate ceremony with immediate family,
+            we would be truly honored to celebrate this special occasion with you at our reception.
+          </p>
+          <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-[#76665c] sm:text-lg">
+            Together with our families, we invite you to celebrate our marriage. We’re grateful to share this special day with the people who mean so much to us.
+          </p>
+        </div>
         <div className="mx-auto mt-8 max-w-[500px] border border-[#c5a15b]/60 bg-white p-2 shadow-[0_18px_55px_rgba(87,11,25,.1)]">
           <ImageLightbox src={invitationImage} alt={invitationAlt} label="wedding invitation" imageClassName="h-auto w-full" />
         </div>

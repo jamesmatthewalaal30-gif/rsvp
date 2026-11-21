@@ -224,7 +224,6 @@ test('RSVP tracks primary and companion responses independently without duplicat
   const dashboard = service.post({ action: 'admin_dashboard', admin_password: 'a sufficiently long admin password' });
   assert.equal(dashboard.data.summary.attending, 1);
   assert.equal(dashboard.data.summary.declined, 1);
-  assert.equal(dashboard.data.summary.capacity_remaining, 59);
   assert.equal(dashboard.data.summary.pending, 1);
 });
 
@@ -330,7 +329,7 @@ test('admin can add or rename one companion without confirming their RSVP', () =
   assert.equal(service.sheets.get('RSVP_RESPONSES').rows[1][4], 'declined');
 });
 
-test('the 60-person capacity includes companions and released seats can be reused', () => {
+test('RSVP submissions are not limited by a seat count', () => {
   const service = createService();
   for (let index = 1; index <= 31; index += 1) {
     service.addInvitation(`WED-${String(index).padStart(3, '0')}`, `Guest ${index}`, `private-${index}`);
@@ -355,28 +354,7 @@ test('the 60-person capacity includes companions and released seats can be reuse
     attendance_status: 'attending',
     bring_companion: false,
     contact_number: '+639171234599',
-  }).code, 'capacity_reached');
-
-  const releaseSeat = service.post({
-    action: 'submit_rsvp',
-    invitation_id: 'WED-001',
-    invitation_code: 'private-1',
-    attendance_status: 'declined',
-    bring_companion: true,
-    companion_name: 'Companion 1',
-    companion_attendance_status: 'attending',
-    contact_number: '+639171234500',
-  });
-  assert.equal(releaseSeat.ok, true);
-  const usesReleasedSeat = service.post({
-    action: 'submit_rsvp',
-    invitation_id: 'WED-031',
-    invitation_code: 'private-31',
-    attendance_status: 'attending',
-    bring_companion: false,
-    contact_number: '+639171234599',
-  });
-  assert.equal(usesReleasedSeat.ok, true);
+  }).ok, true);
 });
 
 test('the deadline includes 11:59 PM Philippine time on November 30, 2026', () => {

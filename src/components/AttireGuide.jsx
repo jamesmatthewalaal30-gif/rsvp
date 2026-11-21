@@ -21,16 +21,6 @@ export default function AttireGuide() {
             imageClassName="h-auto w-full"
           />
         </div>
-        <div className="mx-auto mt-6 grid max-w-3xl gap-3 sm:grid-cols-2 sm:gap-5">
-          <article className="border border-[#c5a15b]/40 bg-white/70 p-5">
-            <h3 className="font-display text-lg text-[#570b19]">For Women</h3>
-            <p className="mt-2 text-sm leading-6 text-[#76665c]">Flowy midi or maxi dresses with dressy flats or wedges.</p>
-          </article>
-          <article className="border border-[#c5a15b]/40 bg-white/70 p-5">
-            <h3 className="font-display text-lg text-[#570b19]">For Men</h3>
-            <p className="mt-2 text-sm leading-6 text-[#76665c]">Linen button-downs with tailored trousers and loafers.</p>
-          </article>
-        </div>
       </div>
     </section>
   );

@@ -4,7 +4,6 @@ const SHEET_HEADERS = {
   RSVP_RESPONSES: ['response_id', 'invitation_id', 'guest_id', 'guest_name', 'attendance_status', 'contact_number', 'submitted_at'],
 };
 const RSVP_DEADLINE = '2026-11-30T23:59:59.999+08:00';
-const RSVP_CAPACITY = 60;
 const COMPANION_MIGRATION_PROPERTY = 'COMPANION_GUEST_MIGRATION_V1';
 
 function setupSheets() {
@@ -219,15 +218,6 @@ function submitRsvp_(payload) {
       if (responseIds[row.guest_id]) throw apiError_('duplicate_response', 'Duplicate response records need to be resolved by the wedding organizers.');
       responseIds[row.guest_id] = true;
     });
-    const oldAttending = existingRows.filter(function (row) {
-      return row.invitation_id === invitation.invitation_id && row.attendance_status === 'attending';
-    }).length;
-    const nextAttending = (status === 'attending' ? 1 : 0) + (companionStatus === 'attending' ? 1 : 0);
-    const totalAttending = existingRows.filter(function (row) { return row.attendance_status === 'attending'; }).length;
-    if (totalAttending - oldAttending + nextAttending > RSVP_CAPACITY) {
-      throw apiError_('capacity_reached', 'The celebration has reached its 60-seat capacity. Please contact Kym for help.');
-    }
-
     const now = new Date().toISOString();
     if (companion) {
       guestSheet.getRange(companion._row, 3).setValue(companionName);
@@ -310,8 +300,6 @@ function adminDashboard_() {
       total_invitations: invitations.length,
       total_guests: guests.length,
       attending: attending,
-      capacity: RSVP_CAPACITY,
-      capacity_remaining: Math.max(0, RSVP_CAPACITY - attending),
       declined: declined,
       pending: guests.length - responded,
       attendance_percentage: guests.length ? Math.round(attending / guests.length * 100) : 0,

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-
 export default function InvitationEnvelope({ onOpen, onOpening }) {
   const [opening, setOpening] = useState(false);
 
@@ -14,16 +13,17 @@ export default function InvitationEnvelope({ onOpen, onOpening }) {
     if (!opening) {
       setOpening(true);
       onOpening();
+      window.dispatchEvent(new CustomEvent('wedding:play-music'));
     }
   }
 
   return (
     <div
-      className={`invitation-gate${opening ? ' is-opening' : ''}`}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Wedding invitation"
-    >
+        className={`invitation-gate${opening ? ' is-opening' : ''}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Wedding invitation"
+      >
       <svg className="invitation-frame" viewBox="0 0 1000 1000" preserveAspectRatio="none" aria-hidden="true" focusable="false">
         <path
           className="invitation-frame-accent"

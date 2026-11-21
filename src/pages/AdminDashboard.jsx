@@ -136,11 +136,10 @@ export default function AdminDashboard() {
     </header>
     <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8">
       {error && <p role="alert" className="mb-5 border border-[#800020]/20 bg-[#800020]/[.04] p-4 text-sm text-[#800020]">{error}</p>}
-      {summary && <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+      {summary && <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <Stat label="Invitations" value={summary.total_invitations} />
         <Stat label="Invited guests" value={summary.total_guests} />
         <Stat label="Attending" value={summary.attending} />
-        <Stat label="Seats remaining" value={`${summary.capacity_remaining} / ${summary.capacity}`} />
         <Stat label="Declined" value={summary.declined} />
         <Stat label="Attendance rate" value={`${summary.attendance_percentage}%`} />
       </div>}
