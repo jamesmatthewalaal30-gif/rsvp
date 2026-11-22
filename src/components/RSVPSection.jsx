@@ -24,7 +24,6 @@ export default function RSVPSection() {
         {submission ? <Confirmation submission={submission} /> : <>
           <SectionHeading eyebrow="KINDLY RSVP BY NOVEMBER 30, 2026" title="We’ve saved you a seat" />
           <div className="mx-auto mb-8 -mt-7 max-w-3xl text-center text-sm leading-6 text-[#76665c]">
-            <p>Kindly RSVP by November 30, 2026.</p>
             <p className="mt-2">Only invited guests and their registered companions with confirmed RSVPs by the deadline will be accommodated.</p>
           </div>
           {rsvpOpen
