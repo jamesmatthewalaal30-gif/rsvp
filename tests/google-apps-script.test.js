@@ -452,11 +452,48 @@ test('invitation creation allows one named guest and admin actions require authe
     guest_names: ['Tony Stark'],
   });
   assert.equal(created.ok, true);
-  assert.equal(service.sheets.get('INVITATIONS').rows[1][4], 2);
+  assert.equal(service.sheets.get('INVITATIONS').rows[1][4], 1);
 
   const unauthorizedAdmin = service.post({ action: 'admin_dashboard', admin_password: 'wrong-password' });
   assert.equal(unauthorizedAdmin.ok, false);
   assert.equal(unauthorizedAdmin.code, 'unauthorized');
+});
+
+test('unclassified invitations are standard one-person invitations', () => {
+  const service = createService();
+  const admin = { admin_password: 'a sufficiently long admin password' };
+  const created = service.post({
+    ...admin,
+    action: 'admin_create_invitation',
+    primary_guest_name: 'Mia Santos',
+    invitation_code: 'private-mia',
+    guest_names: ['Mia Santos'],
+  });
+  const invitationId = created.data.invitation_id;
+  assert.equal(created.ok, true);
+  assert.equal(service.sheets.get('INVITATIONS').rows[1][3], '');
+  assert.equal(service.sheets.get('INVITATIONS').rows[1][4], 1);
+
+  const addedByAdmin = service.post({
+    ...admin,
+    action: 'admin_set_companion',
+    invitation_id: invitationId,
+    companion_name: 'Noah Santos',
+  });
+  assert.equal(addedByAdmin.ok, false);
+  assert.equal(addedByAdmin.code, 'guest_not_allowed');
+
+  const addedAtRsvp = service.post({
+    action: 'submit_rsvp',
+    invitation_id: invitationId,
+    invitation_code: 'private-mia',
+    attendance_status: 'attending',
+    registered_companions: [],
+    new_companion_names: ['Noah Santos'],
+    contact_number: '+639171234567',
+  });
+  assert.equal(addedAtRsvp.ok, false);
+  assert.equal(addedAtRsvp.code, 'guest_not_allowed');
 });
 
 test('admins can configure additional guest permission per invitation', () => {

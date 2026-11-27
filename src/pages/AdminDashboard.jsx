@@ -189,6 +189,10 @@ function InvitationRow({ invitation, onRemove, onEdit, onSetCompanion, onDelete 
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const isFamilyGuest = ['family', 'family guest'].includes((invitation.guest_type || '').trim().toLowerCase());
+  const [classification, setClassification] = useState(
+    isFamilyGuest ? 'family' : Number(invitation.allocated_seats) > 1 ? 'additional' : '',
+  );
   const [companionEditing, setCompanionEditing] = useState(false);
   const [companionSaving, setCompanionSaving] = useState(false);
   const [companionError, setCompanionError] = useState('');
@@ -203,9 +207,11 @@ function InvitationRow({ invitation, onRemove, onEdit, onSetCompanion, onDelete 
       await onEdit({
         invitation_id: invitation.invitation_id,
         primary_guest_name: form.get('primary_guest_name'),
-        guest_type: form.get('guest_classification') === 'family' ? 'Family Guest' : 'Allow one additional guest',
+        guest_type: classification === 'family'
+          ? 'Family Guest'
+          : classification === 'additional' ? 'Allow one additional guest' : '',
         invitation_code: form.get('invitation_code'),
-        allow_additional_guest: true,
+        allow_additional_guest: classification !== '',
       });
       setEditing(false);
     } catch (requestError) {
@@ -248,8 +254,11 @@ function InvitationRow({ invitation, onRemove, onEdit, onSetCompanion, onDelete 
       <label className="text-xs font-semibold">Invitation code<input name="invitation_code" required defaultValue={invitation.invitation_code} className="focus-ring mt-1 h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal" /></label>
       <fieldset className="grid gap-2 sm:col-span-2">
         <legend className="mb-1 text-xs font-semibold">Guest classification</legend>
-        <label className="flex items-center gap-2 text-xs"><input type="radio" name="guest_classification" value="standard" defaultChecked={!['family', 'family guest'].includes((invitation.guest_type || '').trim().toLowerCase())} /> Allow one additional guest (2 people total)</label>
-        <label className="flex items-center gap-2 text-xs"><input type="radio" name="guest_classification" value="family" defaultChecked={['family', 'family guest'].includes((invitation.guest_type || '').trim().toLowerCase())} /> Family Guest (up to 2 additional guests; 3 people total)</label>
+        <select name="guest_classification" value={classification} onChange={(event) => setClassification(event.target.value)} className="focus-ring h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal">
+          <option value="">No classification — standard guest (1 person total)</option>
+          <option value="additional">Allow one additional guest (2 people total)</option>
+          <option value="family">Family Guest (up to 2 additional guests; 3 people total)</option>
+        </select>
         <p className="text-xs leading-5 text-[#76665c]">Any companions already listed count toward the total. For example, a Family Guest invitation with one companion listed has room for only one more.</p>
       </fieldset>
       <div className="flex justify-end gap-2 sm:col-span-2"><button type="button" onClick={() => setEditing(false)} className="px-3 py-2 text-xs">CANCEL</button><button disabled={saving} className="bg-[#800020] px-4 py-2 text-xs font-semibold text-white">{saving ? 'SAVING…' : 'SAVE CHANGES'}</button></div>
@@ -272,7 +281,7 @@ function InvitationRow({ invitation, onRemove, onEdit, onSetCompanion, onDelete 
 
 function InvitationForm({ onCancel, onSubmit }) {
   const [primary, setPrimary] = useState('');
-  const [classification, setClassification] = useState('standard');
+  const [classification, setClassification] = useState('');
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -286,10 +295,12 @@ function InvitationForm({ onCancel, onSubmit }) {
     try {
       await onSubmit({
         primary_guest_name: primary.trim(),
-        guest_type: isFamilyGuest ? 'Family Guest' : 'Allow one additional guest',
+        guest_type: isFamilyGuest
+          ? 'Family Guest'
+          : classification === 'additional' ? 'Allow one additional guest' : '',
         invitation_code: code.trim(),
         guest_names: [primary.trim()],
-        allow_additional_guest: true,
+        allow_additional_guest: classification !== '',
       });
     } catch (requestError) {
       setError(requestError.message);
@@ -302,9 +313,12 @@ function InvitationForm({ onCancel, onSubmit }) {
     <label className="text-xs font-semibold">Invitation code<input required value={code} onChange={(event) => setCode(event.target.value)} className="focus-ring mt-2 h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal" /></label>
     <fieldset className="grid gap-2 sm:col-span-2">
       <legend className="mb-1 text-xs font-semibold">Guest classification</legend>
-      <label className="flex items-center gap-2 text-xs"><input type="radio" name="guest_classification" value="standard" checked={classification === 'standard'} onChange={() => setClassification('standard')} /> Allow one additional guest (2 people total)</label>
-      <label className="flex items-center gap-2 text-xs"><input type="radio" name="guest_classification" value="family" checked={classification === 'family'} onChange={() => setClassification('family')} /> Family Guest (up to 2 additional guests; 3 people total)</label>
-      <p className="text-xs leading-5 text-[#76665c]">{isFamilyGuest ? 'Any companions already listed count toward the total. If one companion is already listed, the guest can add only one more.' : 'Each invitation is for the named guest and allows one additional guest.'}</p>
+      <select name="guest_classification" value={classification} onChange={(event) => setClassification(event.target.value)} className="focus-ring h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal">
+        <option value="">No classification — standard guest (1 person total)</option>
+        <option value="additional">Allow one additional guest (2 people total)</option>
+        <option value="family">Family Guest (up to 2 additional guests; 3 people total)</option>
+      </select>
+      <p className="text-xs leading-5 text-[#76665c]">{isFamilyGuest ? 'Any companions already listed count toward the total. If one companion is already listed, the guest can add only one more.' : classification === 'additional' ? 'This invitation is for the named guest and allows one additional guest.' : 'No additional guests can be added to a standard invitation.'}</p>
     </fieldset>
     {error && <p role="alert" className="text-sm text-[#800020] sm:col-span-2">{error}</p>}
     <div className="flex justify-end gap-2 sm:col-span-2"><button type="button" onClick={onCancel} className="border border-[#e4d6c6] px-4 py-2 text-xs">CANCEL</button><button disabled={saving} className="inline-flex items-center gap-2 bg-[#800020] px-4 py-2 text-xs font-semibold text-white disabled:opacity-60">{saving ? 'SAVING…' : <><Plus size={14} /> CREATE INVITATION</>}</button></div>

@@ -380,9 +380,14 @@ function adminCreateInvitation_(payload) {
     const code = cleanRequired_(payload.invitation_code, 100, 'Invitation code');
     const guestType = cleanText_(payload.guest_type, 80);
     const names = validateGuestNames_(payload.guest_names, primary);
-    const allowAdditionalGuest = payload.allow_additional_guest === undefined ? true : payload.allow_additional_guest;
+    const allowAdditionalGuest = payload.allow_additional_guest === undefined
+      ? guestType.trim() !== ''
+      : payload.allow_additional_guest;
     if (typeof allowAdditionalGuest !== 'boolean') {
       throw apiError_('invalid_input', 'Choose whether this invitation allows additional guests.');
+    }
+    if (!guestType && allowAdditionalGuest) {
+      throw apiError_('invalid_input', 'An invitation without a guest classification cannot allow additional guests.');
     }
     const invitationId = 'WED-' + Utilities.getUuid().slice(0, 8).toUpperCase();
     const seats = isFamilyGuestType_(guestType) ? 3 : allowAdditionalGuest ? 2 : 1;
@@ -410,10 +415,13 @@ function adminEditInvitation_(payload) {
     const guests = getInvitationGuests_(invitation.invitation_id);
     validateSeatCount_(invitation, guests);
     const allowAdditionalGuest = payload.allow_additional_guest === undefined
-      ? Number(invitation.allocated_seats) > 1
+      ? guestType.trim() !== '' && Number(invitation.allocated_seats) > 1
       : payload.allow_additional_guest;
     if (typeof allowAdditionalGuest !== 'boolean') {
       throw apiError_('invalid_input', 'Choose whether this invitation allows additional guests.');
+    }
+    if (!guestType && allowAdditionalGuest) {
+      throw apiError_('invalid_input', 'An invitation without a guest classification cannot allow additional guests.');
     }
     const seats = isFamilyGuestType_(guestType) ? 3 : allowAdditionalGuest ? 2 : 1;
     if (guests.length > seats) {
@@ -543,7 +551,9 @@ function validateCompanionLimit_(invitation, guests) {
 }
 
 function maxSeatsForGuestType_(guestType) {
-  return isFamilyGuestType_(guestType) ? 3 : 2;
+  const type = cleanText_(guestType, 80);
+  if (!type) return 1;
+  return isFamilyGuestType_(type) ? 3 : 2;
 }
 
 function isFamilyGuestType_(guestType) {
