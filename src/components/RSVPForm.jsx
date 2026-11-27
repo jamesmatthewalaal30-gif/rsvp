@@ -53,28 +53,21 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
       if (!['attending', 'declined'].includes(companion.attendance_status)) {
         nextErrors[`companionAttendance-${companion.guest_id}`] = 'Please choose if this companion can join us.';
       }
-      if (!companion.guest_name.trim()) {
-        nextErrors[`companionName-${companion.guest_id}`] = 'Please enter this companion’s full name.';
-      } else if (companion.guest_name.includes(',')) {
-        nextErrors[`companionName-${companion.guest_id}`] = 'Enter one companion’s name only; multiple names are not allowed.';
-      }
     });
     if (attendance === 'attending' && !contact.trim()) {
       nextErrors.contact = 'Please enter your mobile number.';
     }
-    if (attendance === 'attending' && remainingCompanionSlots > 0 &&
+    if (remainingCompanionSlots > 0 &&
         (newCompanionCount === '' || Number(newCompanionCount) !== newCompanionNames.length)) {
       nextErrors.newCompanionCount = 'Please choose how many additional companions you are bringing.';
     }
-    if (attendance === 'attending') {
-      newCompanionNames.forEach((name, index) => {
-        if (!name.trim()) {
-          nextErrors[`newCompanionName-${index}`] = 'Please enter this companion’s full name.';
-        } else if (name.includes(',')) {
-          nextErrors[`newCompanionName-${index}`] = 'Enter one companion’s name only; multiple names are not allowed.';
-        }
-      });
-    }
+    newCompanionNames.forEach((name, index) => {
+      if (!name.trim()) {
+        nextErrors[`newCompanionName-${index}`] = 'Please enter this companion’s full name.';
+      } else if (name.includes(',')) {
+        nextErrors[`newCompanionName-${index}`] = 'Enter one companion’s name only; multiple names are not allowed.';
+      }
+    });
     if (Object.keys(nextErrors).length) {
       setErrors(nextErrors);
       return;
@@ -93,7 +86,7 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
           guest_name: companion.guest_name.trim(),
           attendance_status: companion.attendance_status,
         })),
-        new_companion_names: attendance === 'attending' ? newCompanionNames.map((name) => name.trim()) : [],
+        new_companion_names: newCompanionNames.map((name) => name.trim()),
         contact_number: contact.trim(),
       });
       onSuccess({ invitation: verified, responses: result.responses });
@@ -126,7 +119,7 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
   const remainingCompanionSlots = Math.max(0, Number(verified.allocated_seats) - 1 - registeredCompanions.length);
   const isFamilyGuest = ['family', 'family guest'].includes((verified.guest_type || '').trim().toLowerCase());
   const acceptedCompanions = registeredCompanions.filter((companion) => companion.attendance_status === 'attending').length;
-  const newAttendingCount = attendance === 'attending' ? newCompanionNames.length : 0;
+  const newAttendingCount = newCompanionNames.length;
   const totalAttending = (attendance === 'attending' ? 1 : 0) + acceptedCompanions + newAttendingCount;
 
   return <div className="mx-auto max-w-2xl text-left">
@@ -143,10 +136,6 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
                 setAttendance(value);
                 setErrors({});
                 setError('');
-                if (value === 'declined') {
-                  setNewCompanionCount('');
-                  setNewCompanionNames([]);
-                }
               }} className="accent-[#800020]" />
               {label}
             </label>)}
@@ -168,15 +157,8 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
             </label>)}
           </div>
           {errors[`companionAttendance-${companion.guest_id}`] && <FieldError>{errors[`companionAttendance-${companion.guest_id}`]}</FieldError>}
-          <label className="mt-4 block text-xs font-semibold text-[#39251f]" htmlFor={`companion-name-${companion.guest_id}`}>Companion’s full name
-            <input id={`companion-name-${companion.guest_id}`} value={companion.guest_name} onChange={(event) => {
-              setRegisteredCompanions((current) => current.map((item) => item.guest_id === companion.guest_id
-                ? { ...item, guest_name: event.target.value }
-                : item));
-              setErrors((current) => ({ ...current, [`companionName-${companion.guest_id}`]: '' }));
-            }} required pattern="[^,]+" maxLength={120} autoComplete="name" className="focus-ring mt-2 h-11 w-full border border-[#e4d6c6] px-3 text-sm font-normal outline-none" />
-          </label>
-          {errors[`companionName-${companion.guest_id}`] && <FieldError>{errors[`companionName-${companion.guest_id}`]}</FieldError>}
+          <p className="mt-4 text-xs text-[#39251f]">Companion’s full name</p>
+          <p className="mt-2 border border-[#e4d6c6] bg-[#fff8ef] px-3 py-3 text-sm text-[#76665c]">{companion.guest_name}</p>
         </fieldset>)}
 
         <div className="mt-5">
@@ -186,8 +168,8 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
           {attendance === 'attending' && errors.contact && <FieldError>{errors.contact}</FieldError>}
         </div>
 
-        {attendance === 'attending' && remainingCompanionSlots > 0 && <div className="mt-5">
-          <label className="block text-xs font-semibold text-[#39251f]" htmlFor="new-companion-count">How many additional companions are you bringing?
+        {remainingCompanionSlots > 0 && <div className="mt-5">
+          <label className="block text-xs font-semibold text-[#39251f]" htmlFor="new-companion-count">How many additional companions will attend?
             <select id="new-companion-count" value={newCompanionCount} onChange={(event) => {
               const count = event.target.value === '' ? '' : Number(event.target.value);
               setNewCompanionCount(count);

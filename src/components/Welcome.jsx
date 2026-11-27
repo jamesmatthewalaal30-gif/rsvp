@@ -9,8 +9,8 @@ export default function Welcome() {
       <div className="section-shell text-center">
         <div className="ornament-line mx-auto w-fit text-xl">❧</div>
         <div className="mx-auto mt-7 max-w-xl">
-          <p className="font-display text-xl uppercase leading-7 text-[#bd7f86]">Join us at the reception</p>
-          <p className="mt-3 text-xs font-semibold uppercase tracking-[.24em] text-[#76665c]">Celebration of our civil wedding</p>
+          <h2 className="font-display text-2xl uppercase leading-8 text-[#570b19] sm:text-3xl">Celebrating our civil wedding</h2>
+          <p className="mt-3 text-xs font-semibold uppercase tracking-[.24em] text-[#76665c]">Join us at the reception</p>
           <p className="mt-4 text-base leading-8 text-[#76665c] sm:text-lg">
             As we will be having a private and intimate ceremony with immediate family,
             we would be truly honored to celebrate this special occasion with you at our reception.

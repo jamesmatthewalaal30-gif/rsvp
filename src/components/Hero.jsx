@@ -45,6 +45,7 @@ export default function Hero({ isRevealed = false }) {
           <p className="font-script text-5xl leading-tight text-[#800020] sm:text-7xl">Nathaniel &amp; Kimberly</p>
           <div className="ornament-line mx-auto mt-3 w-fit text-xl">❧</div>
           <h1 className="mt-3 font-display text-2xl text-[#570b19] sm:text-3xl">A day made for forever</h1>
+          <p className="mt-3 text-xs font-semibold uppercase tracking-[.24em] text-[#73752d]">Celebrating our civil wedding</p>
         </motion.div>
         <motion.div variants={itemVariants}>
           <p className="mx-auto mt-7 max-w-xl font-display text-lg italic leading-8 text-[#76665c] sm:text-xl">“He hath made every thing beautiful in his time.”</p>

@@ -63,13 +63,13 @@ export default function WeddingDay() {
       <div className="section-shell">
         <div className="mx-auto mb-8 max-w-2xl text-center sm:mb-12">
           <p className="mb-3 text-[11px] font-semibold uppercase tracking-[.28em] text-[#73752d]">Wednesday, December 9, 2026</p>
-          <h2 className="font-display text-4xl leading-tight text-[#570b19] sm:text-5xl">Our Wedding Day</h2>
+          <h2 className="font-display text-4xl leading-tight text-[#570b19] sm:text-5xl">Our Civil Wedding Day</h2>
         </div>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-[.9fr_1.1fr] md:gap-x-6 md:gap-y-5">
           <article className="order-1 border border-[#c5a15b]/55 bg-white/80 p-6 md:order-none sm:p-8">
             <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-full bg-[#73752d]/10 text-[#73752d]"><Church size={20} strokeWidth={1.6} /></div>
             <p className="text-[10px] font-semibold uppercase tracking-[.22em] text-[#73752d]">CEREMONY</p>
-            <h3 className="font-display mt-2 text-2xl text-[#570b19]">Wedding Ceremony</h3>
+            <h3 className="font-display mt-2 text-2xl text-[#570b19]">Civil Wedding Ceremony</h3>
             <p className="mt-5 flex items-center gap-2 text-sm font-semibold text-[#800020]"><Clock3 size={16} /> 9:00 AM</p>
             <p className="mt-2 flex items-center gap-2 text-sm text-[#39251f]"><MapPin size={16} className="shrink-0 text-[#c5a15b]" /> Panay City Hall</p>
             <p className="mt-3 text-sm leading-6 text-[#76665c]">For our principal sponsors, our Ninongs and Ninangs, only.</p>
