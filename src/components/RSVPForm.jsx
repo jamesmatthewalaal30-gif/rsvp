@@ -136,6 +136,10 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
                 setAttendance(value);
                 setErrors({});
                 setError('');
+                if (value === 'declined') {
+                  setNewCompanionCount('');
+                  setNewCompanionNames([]);
+                }
               }} className="accent-[#800020]" />
               {label}
             </label>)}
@@ -168,7 +172,7 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
           {attendance === 'attending' && errors.contact && <FieldError>{errors.contact}</FieldError>}
         </div>
 
-        {remainingCompanionSlots > 0 && <div className="mt-5">
+        {attendance === 'attending' && remainingCompanionSlots > 0 && <div className="mt-5">
           <label className="block text-xs font-semibold text-[#39251f]" htmlFor="new-companion-count">How many additional companions will attend?
             <select id="new-companion-count" value={newCompanionCount} onChange={(event) => {
               const count = event.target.value === '' ? '' : Number(event.target.value);

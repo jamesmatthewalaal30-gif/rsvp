@@ -295,7 +295,7 @@ test('RSVP requires a mobile number and companion name and rejects duplicate nam
   assert.equal(service.sheets.get('RSVP_RESPONSES').rows[1][5], '');
 });
 
-test('a declining primary guest can still register an attending companion', () => {
+test('a declining primary guest cannot register a new attending companion', () => {
   const service = createService();
   service.addInvitation('WED-001', 'Tony Stark', 'private-001', ['Tony Stark'], 2);
   const result = service.post({
@@ -308,9 +308,9 @@ test('a declining primary guest can still register an attending companion', () =
     contact_number: '',
   });
 
-  assert.equal(result.ok, true);
-  assert.deepEqual(result.data.responses.map((response) => response.attendance_status), ['declined', 'attending']);
-  assert.deepEqual(service.sheets.get('INVITED_GUESTS').rows.slice(1).map((row) => row[2]), ['Tony Stark', 'Pepper Potts']);
+  assert.equal(result.ok, false);
+  assert.equal(result.code, 'invalid_companion');
+  assert.deepEqual(service.sheets.get('INVITED_GUESTS').rows.slice(1).map((row) => row[2]), ['Tony Stark']);
 });
 
 test('RSVP requires a separate accept or decline for a registered companion', () => {
@@ -329,6 +329,22 @@ test('RSVP requires a separate accept or decline for a registered companion', ()
   assert.equal(missingCompanionDecision.ok, false);
   assert.equal(missingCompanionDecision.code, 'invalid_companion');
   assert.equal(service.sheets.get('RSVP_RESPONSES').rows.length, 1);
+
+  const presetCompanionAttends = service.post({
+    action: 'submit_rsvp',
+    invitation_id: 'WED-001',
+    invitation_code: 'private-001',
+    attendance_status: 'declined',
+    registered_companions: [{
+      guest_id: 'WED-001-G2',
+      guest_name: 'Pepper Potts',
+      attendance_status: 'attending',
+    }],
+    new_companion_names: [],
+    contact_number: '',
+  });
+  assert.equal(presetCompanionAttends.ok, true);
+  assert.deepEqual(presetCompanionAttends.data.responses.map((response) => response.attendance_status), ['declined', 'attending']);
 });
 
 test('admin can add or rename one companion without confirming their RSVP', () => {

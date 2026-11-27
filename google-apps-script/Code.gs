@@ -215,6 +215,9 @@ function submitRsvp_(payload) {
       newCompanionNames = payload.new_companion_names.map(function (name) {
         return cleanSingleGuestName_(name, 'Guest full name');
       });
+      if (status === 'declined' && newCompanionNames.length) {
+        throw apiError_('invalid_companion', 'A new companion can only attend when the invited guest accepts.');
+      }
       if (guests.length + newCompanionNames.length > Number(invitation.allocated_seats)) {
         throw apiError_('guest_not_allowed', 'This invitation does not have enough remaining seats for those companions.');
       }
@@ -243,6 +246,9 @@ function submitRsvp_(payload) {
       } else {
         if (typeof payload.bring_companion !== 'boolean') {
           throw apiError_('invalid_companion', 'Choose whether an additional guest will attend.');
+        }
+        if (status === 'declined' && payload.bring_companion) {
+          throw apiError_('invalid_companion', 'A new companion can only attend when the invited guest accepts.');
         }
         if (payload.bring_companion) {
           newCompanionNames.push(cleanSingleGuestName_(payload.companion_name, 'Guest full name'));
