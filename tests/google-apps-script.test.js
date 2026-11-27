@@ -138,7 +138,7 @@ test('setup removes legacy companion guests and responses while retaining primar
   ]);
   assert.deepEqual(responseSheet.rows.slice(1).map((row) => row[2]), ['WED-001-G1']);
   assert.deepEqual(service.sheets.get('INVITED_GUESTS').rows.slice(1).map((row) => row[2]), ['Jordan Lee']);
-  assert.equal(service.sheets.get('INVITATIONS').rows[1][4], 2);
+  assert.equal(service.sheets.get('INVITATIONS').rows[1][4], 3);
 });
 
 test('name lookup returns matching invitations without exposing invitation codes', () => {
@@ -156,7 +156,7 @@ test('name lookup returns matching invitations without exposing invitation codes
 
 test('admin dashboard identifies the invitation with invalid guest data', () => {
   const service = createService();
-  service.addInvitation('WED-BAD', 'Tony Stark', 'private-bad', ['Tony Stark', 'Pepper Potts', 'Rhodey'], 3);
+  service.addInvitation('WED-BAD', 'Tony Stark', 'private-bad', ['Tony Stark', 'Pepper Potts', 'Rhodey'], 2);
 
   const result = service.post({
     action: 'admin_dashboard',
@@ -166,7 +166,7 @@ test('admin dashboard identifies the invitation with invalid guest data', () => 
   assert.equal(result.ok, false);
   assert.equal(result.code, 'seat_mismatch');
   assert.match(result.error, /WED-BAD/);
-  assert.match(result.error, /allocated_seats=3/);
+  assert.match(result.error, /allocated_seats=2/);
   assert.match(result.error, /Companion: 2/);
 });
 
@@ -248,6 +248,14 @@ test('RSVP requires a mobile number and companion name and rejects duplicate nam
   assert.equal(missingCompanion.ok, false);
   assert.equal(missingCompanion.code, 'invalid_input');
 
+  const multipleCompanionNames = service.post({ ...payload, companion_name: 'Pepper Potts, Rhodey' });
+  assert.equal(multipleCompanionNames.ok, false);
+  assert.equal(multipleCompanionNames.code, 'invalid_input');
+
+  const missingAttendance = service.post({ ...payload, attendance_status: '' });
+  assert.equal(missingAttendance.ok, false);
+  assert.equal(missingAttendance.code, 'invalid_status');
+
   const duplicateGuest = service.post({ ...payload, companion_name: 'Tony Stark' });
   assert.equal(duplicateGuest.ok, false);
   assert.equal(duplicateGuest.code, 'duplicate_guest');
@@ -275,6 +283,24 @@ test('RSVP requires a mobile number and companion name and rejects duplicate nam
   assert.equal(service.sheets.get('RSVP_RESPONSES').rows[1][5], '');
 });
 
+test('RSVP requires a separate accept or decline for a registered companion', () => {
+  const service = createService();
+  service.addInvitation('WED-001', 'Tony Stark', 'private-001', ['Tony Stark', 'Pepper Potts']);
+
+  const missingCompanionDecision = service.post({
+    action: 'submit_rsvp',
+    invitation_id: 'WED-001',
+    invitation_code: 'private-001',
+    attendance_status: 'declined',
+    bring_companion: true,
+    companion_name: 'Pepper Potts',
+    contact_number: '',
+  });
+  assert.equal(missingCompanionDecision.ok, false);
+  assert.equal(missingCompanionDecision.code, 'invalid_companion');
+  assert.equal(service.sheets.get('RSVP_RESPONSES').rows.length, 1);
+});
+
 test('admin can add or rename one companion without confirming their RSVP', () => {
   const service = createService();
   service.addInvitation('WED-001', 'Tony Stark', 'private-001', ['Tony Stark'], 1);
@@ -291,7 +317,7 @@ test('admin can add or rename one companion without confirming their RSVP', () =
   assert.equal(added.data.created, true);
   assert.equal(service.sheets.get('INVITED_GUESTS').rows.length, 3);
   assert.equal(service.sheets.get('RSVP_RESPONSES').rows.length, 1);
-  assert.equal(service.sheets.get('INVITATIONS').rows[1][4], 2);
+  assert.equal(service.sheets.get('INVITATIONS').rows[1][4], 3);
 
   const verified = service.post({
     action: 'verify_invitation',
@@ -509,4 +535,102 @@ test('admins can configure additional guest permission per invitation', () => {
   assert.equal(disallowWithRegisteredGuest.ok, false);
   assert.equal(disallowWithRegisteredGuest.code, 'seat_mismatch');
   assert.equal(service.sheets.get('INVITATIONS').rows[1][4], 2);
+});
+
+test('Family Guest invitations allow up to three total guests and account for registered companions', () => {
+  const service = createService();
+  const admin = { admin_password: 'a sufficiently long admin password' };
+  const created = service.post({
+    ...admin,
+    action: 'admin_create_invitation',
+    primary_guest_name: 'Mia Santos',
+    guest_type: 'Family Guest',
+    invitation_code: 'family-mia',
+    guest_names: ['Mia Santos'],
+    allow_additional_guest: false,
+  });
+  assert.equal(created.ok, true);
+  const invitationId = created.data.invitation_id;
+  assert.equal(service.sheets.get('INVITATIONS').rows[1][4], 3);
+
+  const registered = service.post({
+    ...admin,
+    action: 'admin_set_companion',
+    invitation_id: invitationId,
+    companion_name: 'Noah Santos',
+  });
+  assert.equal(registered.ok, true);
+
+  const basePayload = {
+    action: 'submit_rsvp',
+    invitation_id: invitationId,
+    invitation_code: 'family-mia',
+    attendance_status: 'attending',
+    registered_companions: [{
+      guest_id: registered.data.guest_id,
+      guest_name: 'Noah Santos',
+      attendance_status: 'declined',
+    }],
+    contact_number: '+639171234567',
+  };
+  const tooMany = service.post({ ...basePayload, new_companion_names: ['Ava Santos', 'Liam Santos'] });
+  assert.equal(tooMany.ok, false);
+  assert.equal(tooMany.code, 'guest_not_allowed');
+  assert.equal(service.sheets.get('INVITED_GUESTS').rows.length, 3);
+
+  const accepted = service.post({ ...basePayload, new_companion_names: ['Ava Santos'] });
+  assert.equal(accepted.ok, true);
+  assert.deepEqual(accepted.data.responses.map((guest) => guest.guest_name), ['Mia Santos', 'Noah Santos', 'Ava Santos']);
+  assert.deepEqual(accepted.data.responses.map((guest) => guest.attendance_status), ['attending', 'declined', 'attending']);
+  assert.equal(service.sheets.get('INVITED_GUESTS').rows.length, 4);
+});
+
+test('Family Guest invitations without pre-registered companions can add two', () => {
+  const service = createService();
+  const admin = { admin_password: 'a sufficiently long admin password' };
+  const created = service.post({
+    ...admin,
+    action: 'admin_create_invitation',
+    primary_guest_name: 'Mia Santos',
+    guest_type: 'Family Guest',
+    invitation_code: 'family-mia',
+    guest_names: ['Mia Santos'],
+  });
+  const result = service.post({
+    action: 'submit_rsvp',
+    invitation_id: created.data.invitation_id,
+    invitation_code: 'family-mia',
+    attendance_status: 'attending',
+    registered_companions: [],
+    new_companion_names: ['Noah Santos', 'Ava Santos'],
+    contact_number: '+639171234567',
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.data.responses.length, 3);
+  assert.deepEqual(result.data.responses.map((guest) => guest.attendance_status), ['attending', 'attending', 'attending']);
+});
+
+test('non-family invitations reject more than one additional companion', () => {
+  const service = createService();
+  const admin = { admin_password: 'a sufficiently long admin password' };
+  const created = service.post({
+    ...admin,
+    action: 'admin_create_invitation',
+    primary_guest_name: 'Mia Santos',
+    guest_type: 'Friend',
+    invitation_code: 'friend-mia',
+    guest_names: ['Mia Santos'],
+  });
+  const result = service.post({
+    action: 'submit_rsvp',
+    invitation_id: created.data.invitation_id,
+    invitation_code: 'friend-mia',
+    attendance_status: 'attending',
+    registered_companions: [],
+    new_companion_names: ['Noah Santos', 'Ava Santos'],
+    contact_number: '+639171234567',
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.code, 'guest_not_allowed');
+  assert.equal(service.sheets.get('INVITED_GUESTS').rows.length, 2);
 });

@@ -49,16 +49,20 @@ export default function GuestSearch({ onSelect }) {
         {error && <div role="alert" className="mx-auto mt-5 flex max-w-2xl items-start gap-2 rounded-sm border border-[#800020]/20 bg-[#800020]/[.04] p-4 text-left text-sm text-[#570b19]"><AlertCircle className="mt-0.5 shrink-0" size={17} /><span>{error}</span></div>}
         {!error && searched && !loading && results.length === 0 && <p className="mx-auto mt-6 max-w-xl text-sm leading-6 text-[#76665c]">We couldn’t find your invitation. Please check the spelling or text Kym at <a className="font-semibold text-[#570b19] underline underline-offset-2" href="sms:09683773730">09683773730</a> for assistance.</p>}
         {results.length > 0 && <div className="mx-auto mt-7 grid max-w-2xl gap-3 text-left">
-          {results.map((invitation) => <motion.article key={invitation.invitation_id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col justify-between gap-4 border border-[#c5a15b]/45 bg-white p-5 sm:flex-row sm:items-center">
+          {results.map((invitation) => {
+            const isFamilyGuest = ['family', 'family guest'].includes((invitation.guest_type || '').trim().toLowerCase());
+            return <motion.article key={invitation.invitation_id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col justify-between gap-4 border border-[#c5a15b]/45 bg-white p-5 sm:flex-row sm:items-center">
             <div>
               <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold tracking-[.16em] text-[#73752d]"><TicketCheck size={14} /> INVITATION FOUND</div>
               <h3 className="font-display text-xl text-[#570b19]">{invitation.primary_guest_name}</h3>
-              <p className="mt-1 text-xs text-[#76665c]">{invitation.guest_type || 'Wedding guest'} <span className="mx-2 text-[#c5a15b]">·</span> {Number(invitation.allocated_seats) === 2 ? 'Up to 2 seats' : '1 seat'}</p>
+              <p className="mt-1 text-xs text-[#76665c]">{invitation.guest_type || 'Wedding guest'} <span className="mx-2 text-[#c5a15b]">·</span> Up to {invitation.allocated_seats} {Number(invitation.allocated_seats) === 1 ? 'seat' : 'people'}</p>
+              {isFamilyGuest && <p className="mt-2 max-w-sm text-xs leading-5 text-[#76665c]">Family Guest invitations allow up to 3 people total: the named guest and up to 2 companions. Any companion already listed counts toward the limit.</p>}
             </div>
             <button type="button" className="focus-ring inline-flex shrink-0 items-center justify-center gap-2 border border-[#800020] px-5 py-3 text-[10px] font-semibold tracking-[.14em] text-[#800020] transition hover:bg-[#800020] hover:text-white" onClick={() => onSelect(invitation)}>
               Select Invitation <ArrowRight size={14} />
             </button>
-          </motion.article>)}
+          </motion.article>;
+          })}
         </div>}
       </div>
     </div>

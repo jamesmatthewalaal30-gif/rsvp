@@ -245,9 +245,10 @@ function InvitationRow({ invitation, onRemove, onEdit, onSetCompanion, onDelete 
     </div>
     {editing && <form onSubmit={submitEdit} className="grid gap-3 border-t border-[#e4d6c6] bg-[#fff8ef] p-4 sm:grid-cols-2">
       <label className="text-xs font-semibold">Primary guest<input name="primary_guest_name" required defaultValue={invitation.primary_guest_name} className="focus-ring mt-1 h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal" /></label>
-      <label className="text-xs font-semibold">Guest type<input name="guest_type" defaultValue={invitation.guest_type} className="focus-ring mt-1 h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal" /></label>
+      <label className="text-xs font-semibold">Guest type<input name="guest_type" list={`guest-type-${invitation.invitation_id}`} defaultValue={invitation.guest_type} className="focus-ring mt-1 h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal" /><datalist id={`guest-type-${invitation.invitation_id}`}><option value="Family Guest" /><option value="Family" /></datalist></label>
       <label className="text-xs font-semibold">Invitation code<input name="invitation_code" required defaultValue={invitation.invitation_code} className="focus-ring mt-1 h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal" /></label>
-      <label className="flex items-center gap-2 text-xs font-semibold sm:col-span-2"><input name="allow_additional_guest" type="checkbox" defaultChecked={Number(invitation.allocated_seats) > 1} className="accent-[#800020]" /> Allow one additional guest</label>
+      <label className="flex items-center gap-2 text-xs font-semibold sm:col-span-2"><input name="allow_additional_guest" type="checkbox" defaultChecked={Number(invitation.allocated_seats) > 1} className="accent-[#800020]" /> Allow one additional guest for other types (Family Guest always allows up to 2)</label>
+      <p className="text-xs leading-5 text-[#76665c] sm:col-span-2">Set the guest type to “Family Guest” to allow up to 3 people total: the named guest plus 2 companions. Existing companions count toward that limit.</p>
       <div className="flex justify-end gap-2 sm:col-span-2"><button type="button" onClick={() => setEditing(false)} className="px-3 py-2 text-xs">CANCEL</button><button disabled={saving} className="bg-[#800020] px-4 py-2 text-xs font-semibold text-white">{saving ? 'SAVING…' : 'SAVE CHANGES'}</button></div>
     </form>}
     {companionEditing && <form onSubmit={submitCompanion} className="grid gap-3 border-t border-[#e4d6c6] bg-[#fff8ef] p-4 sm:grid-cols-2">
@@ -273,6 +274,7 @@ function InvitationForm({ onCancel, onSubmit }) {
   const [allowAdditionalGuest, setAllowAdditionalGuest] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const isFamilyGuest = ['family', 'family guest'].includes(type.trim().toLowerCase());
 
   async function submit(event) {
     event.preventDefault();
@@ -285,7 +287,7 @@ function InvitationForm({ onCancel, onSubmit }) {
         guest_type: type.trim(),
         invitation_code: code.trim(),
         guest_names: [primary.trim()],
-        allow_additional_guest: allowAdditionalGuest,
+        allow_additional_guest: isFamilyGuest || allowAdditionalGuest,
       });
     } catch (requestError) {
       setError(requestError.message);
@@ -295,10 +297,10 @@ function InvitationForm({ onCancel, onSubmit }) {
   }
   return <form onSubmit={submit} className="mt-5 grid gap-4 border border-[#c5a15b]/40 bg-[#fff8ef] p-4 sm:grid-cols-2 sm:p-5">
     <label className="text-xs font-semibold">Primary guest name<input required value={primary} onChange={(event) => setPrimary(event.target.value)} className="focus-ring mt-2 h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal" /></label>
-    <label className="text-xs font-semibold">Guest type<input value={type} onChange={(event) => setType(event.target.value)} className="focus-ring mt-2 h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal" placeholder="Family / Friend" /></label>
+    <label className="text-xs font-semibold">Guest type<input value={type} onChange={(event) => setType(event.target.value)} list="new-invitation-guest-types" className="focus-ring mt-2 h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal" placeholder="Family Guest / Friend" /><datalist id="new-invitation-guest-types"><option value="Family Guest" /><option value="Family" /></datalist></label>
     <label className="text-xs font-semibold">Invitation code<input required value={code} onChange={(event) => setCode(event.target.value)} className="focus-ring mt-2 h-10 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal" /></label>
-    <label className="flex items-center gap-2 text-xs font-semibold"><input type="checkbox" checked={allowAdditionalGuest} onChange={(event) => setAllowAdditionalGuest(event.target.checked)} className="accent-[#800020]" /> Allow one additional guest</label>
-    <p className="text-xs leading-5 text-[#76665c] sm:col-span-2">Each invitation is for the named guest. Choose whether they may bring one additional guest.</p>
+    <label className="flex items-center gap-2 text-xs font-semibold"><input type="checkbox" checked={isFamilyGuest || allowAdditionalGuest} disabled={isFamilyGuest} onChange={(event) => setAllowAdditionalGuest(event.target.checked)} className="accent-[#800020]" /> {isFamilyGuest ? 'Allow up to 2 additional guests' : 'Allow one additional guest'}</label>
+    <p className="text-xs leading-5 text-[#76665c] sm:col-span-2">{isFamilyGuest ? 'Family Guest invitations allow up to 3 people total: the named guest and up to 2 companions. If one companion is already listed, the guest can add only one more.' : 'Each invitation is for the named guest. Choose whether they may bring one additional guest.'}</p>
     {error && <p role="alert" className="text-sm text-[#800020] sm:col-span-2">{error}</p>}
     <div className="flex justify-end gap-2 sm:col-span-2"><button type="button" onClick={onCancel} className="border border-[#e4d6c6] px-4 py-2 text-xs">CANCEL</button><button disabled={saving} className="inline-flex items-center gap-2 bg-[#800020] px-4 py-2 text-xs font-semibold text-white disabled:opacity-60">{saving ? 'SAVING…' : <><Plus size={14} /> CREATE INVITATION</>}</button></div>
   </form>;

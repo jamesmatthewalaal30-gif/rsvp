@@ -6,8 +6,9 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
   const [verified, setVerified] = useState(null);
   const [code, setCode] = useState('');
   const [attendance, setAttendance] = useState('');
-  const [bringCompanion, setBringCompanion] = useState(null);
-  const [companionName, setCompanionName] = useState('');
+  const [registeredCompanions, setRegisteredCompanions] = useState([]);
+  const [newCompanionCount, setNewCompanionCount] = useState('');
+  const [newCompanionNames, setNewCompanionNames] = useState([]);
   const [contact, setContact] = useState('');
   const [errors, setErrors] = useState({});
   const [error, setError] = useState('');
@@ -21,13 +22,17 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
       const result = await verifyInvitation(invitation.invitation_id, code.trim());
       const details = result.invitation;
       const primary = details.guests.find((guest) => guest.guest_role === 'Primary Guest');
-      const companion = details.guests.find((guest) => guest.guest_role === 'Companion');
       setVerified(details);
       setAttendance(primary?.rsvp_status || '');
-      setBringCompanion(companion
-        ? companion.rsvp_status === 'attending'
-        : primary?.rsvp_status === 'attending' ? false : null);
-      setCompanionName(companion?.guest_name || '');
+      setRegisteredCompanions(details.guests
+        .filter((guest) => guest.guest_role === 'Companion')
+        .map((guest) => ({
+          guest_id: guest.guest_id,
+          guest_name: guest.guest_name,
+          attendance_status: guest.rsvp_status || '',
+        })));
+      setNewCompanionCount('');
+      setNewCompanionNames([]);
       setContact(details.contact_number || '');
     } catch (requestError) {
       setError(requestError.message);
@@ -40,18 +45,35 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
     event.preventDefault();
     if (loading) return;
     const nextErrors = {};
+    const remainingCompanionSlots = Math.max(0, Number(verified.allocated_seats) - 1 - registeredCompanions.length);
     if (!['attending', 'declined'].includes(attendance)) {
       nextErrors.attendance = 'Please choose if you can join us.';
     }
+    registeredCompanions.forEach((companion) => {
+      if (!['attending', 'declined'].includes(companion.attendance_status)) {
+        nextErrors[`companionAttendance-${companion.guest_id}`] = 'Please choose if this companion can join us.';
+      }
+      if (!companion.guest_name.trim()) {
+        nextErrors[`companionName-${companion.guest_id}`] = 'Please enter this companion’s full name.';
+      } else if (companion.guest_name.includes(',')) {
+        nextErrors[`companionName-${companion.guest_id}`] = 'Enter one companion’s name only; multiple names are not allowed.';
+      }
+    });
     if (attendance === 'attending' && !contact.trim()) {
       nextErrors.contact = 'Please enter your mobile number.';
     }
-    const allowsAdditionalGuest = Number(verified.allocated_seats) > 1;
-    if (attendance === 'attending' && allowsAdditionalGuest && typeof bringCompanion !== 'boolean') {
-      nextErrors.bringCompanion = 'Please choose Yes or No.';
+    if (attendance === 'attending' && remainingCompanionSlots > 0 &&
+        (newCompanionCount === '' || Number(newCompanionCount) !== newCompanionNames.length)) {
+      nextErrors.newCompanionCount = 'Please choose how many additional companions you are bringing.';
     }
-    if (attendance === 'attending' && bringCompanion === true && !companionName.trim()) {
-      nextErrors.companionName = 'Please enter your companion’s full name.';
+    if (attendance === 'attending') {
+      newCompanionNames.forEach((name, index) => {
+        if (!name.trim()) {
+          nextErrors[`newCompanionName-${index}`] = 'Please enter this companion’s full name.';
+        } else if (name.includes(',')) {
+          nextErrors[`newCompanionName-${index}`] = 'Enter one companion’s name only; multiple names are not allowed.';
+        }
+      });
     }
     if (Object.keys(nextErrors).length) {
       setErrors(nextErrors);
@@ -62,18 +84,16 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
     setError('');
     setLoading(true);
     try {
-      const hasRegisteredCompanion = verified.guests.some((guest) => guest.guest_role === 'Companion');
-      const includeCompanion = hasRegisteredCompanion ||
-        (attendance === 'attending' && allowsAdditionalGuest && bringCompanion === true);
       const result = await submitRsvp({
         invitation_id: verified.invitation_id,
         invitation_code: code.trim(),
         attendance_status: attendance,
-        bring_companion: includeCompanion,
-        companion_name: includeCompanion ? companionName.trim() : '',
-        companion_attendance_status: hasRegisteredCompanion
-          ? attendance === 'attending' && bringCompanion === true ? 'attending' : 'declined'
-          : includeCompanion ? 'attending' : '',
+        registered_companions: registeredCompanions.map((companion) => ({
+          guest_id: companion.guest_id,
+          guest_name: companion.guest_name.trim(),
+          attendance_status: companion.attendance_status,
+        })),
+        new_companion_names: attendance === 'attending' ? newCompanionNames.map((name) => name.trim()) : [],
         contact_number: contact.trim(),
       });
       onSuccess({ invitation: verified, responses: result.responses });
@@ -103,10 +123,11 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
   </div>;
 
   const firstName = verified.primary_guest_name.trim().split(/\s+/)[0] || 'Guest';
-  const hasRegisteredCompanion = verified.guests.some((guest) => guest.guest_role === 'Companion');
-  const allowsAdditionalGuest = Number(verified.allocated_seats) > 1;
-  const companionAccepted = attendance === 'attending' && bringCompanion === true;
-  const totalAttending = attendance === 'attending' ? 1 + (companionAccepted ? 1 : 0) : 0;
+  const remainingCompanionSlots = Math.max(0, Number(verified.allocated_seats) - 1 - registeredCompanions.length);
+  const isFamilyGuest = ['family', 'family guest'].includes((verified.guest_type || '').trim().toLowerCase());
+  const acceptedCompanions = registeredCompanions.filter((companion) => companion.attendance_status === 'attending').length;
+  const newAttendingCount = attendance === 'attending' ? newCompanionNames.length : 0;
+  const totalAttending = (attendance === 'attending' ? 1 : 0) + acceptedCompanions + newAttendingCount;
 
   return <div className="mx-auto max-w-2xl text-left">
     <button type="button" className="focus-ring mb-4 inline-flex items-center gap-2 text-xs font-semibold tracking-[.1em] text-[#800020]" onClick={() => { setVerified(null); onBack(); }}><ArrowLeft size={15} /> BACK TO SEARCH</button>
@@ -118,18 +139,45 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
           <legend className="mb-3 text-xs font-semibold text-[#39251f]">Will you be joining us?</legend>
           <div className="flex flex-wrap gap-3">
             {[['attending', 'Joyfully accepts'], ['declined', 'Regretfully declines']].map(([value, label]) => <label key={value} className={`flex cursor-pointer items-center gap-2 border px-3 py-2.5 text-xs transition ${attendance === value ? 'border-[#800020] bg-[#800020]/[.045] text-[#570b19]' : 'border-[#e8d9c8] text-[#76665c]'}`}>
-              <input type="radio" name="attendance" value={value} checked={attendance === value} onChange={() => {
+              <input type="radio" name="attendance" value={value} required checked={attendance === value} onChange={() => {
                 setAttendance(value);
                 setErrors({});
                 setError('');
-                if (value === 'declined') setBringCompanion(false);
-                else if (attendance === 'declined') setBringCompanion(null);
+                if (value === 'declined') {
+                  setNewCompanionCount('');
+                  setNewCompanionNames([]);
+                }
               }} className="accent-[#800020]" />
               {label}
             </label>)}
           </div>
           {errors.attendance && <FieldError>{errors.attendance}</FieldError>}
         </fieldset>
+
+        {registeredCompanions.map((companion) => <fieldset key={companion.guest_id} className="mt-5">
+          <legend className="mb-3 text-xs font-semibold text-[#39251f]">Will {companion.guest_name || 'this companion'} be joining us?</legend>
+          <div className="flex flex-wrap gap-3">
+            {[['attending', 'Joyfully accepts'], ['declined', 'Regretfully declines']].map(([value, label]) => <label key={value} className={`flex cursor-pointer items-center gap-2 border px-3 py-2.5 text-xs transition ${companion.attendance_status === value ? 'border-[#800020] bg-[#800020]/[.045] text-[#570b19]' : 'border-[#e8d9c8] text-[#76665c]'}`}>
+              <input type="radio" name={`companion-attendance-${companion.guest_id}`} value={value} required checked={companion.attendance_status === value} onChange={() => {
+                setRegisteredCompanions((current) => current.map((item) => item.guest_id === companion.guest_id
+                  ? { ...item, attendance_status: value }
+                  : item));
+                setErrors((current) => ({ ...current, [`companionAttendance-${companion.guest_id}`]: '' }));
+              }} className="accent-[#800020]" />
+              {label}
+            </label>)}
+          </div>
+          {errors[`companionAttendance-${companion.guest_id}`] && <FieldError>{errors[`companionAttendance-${companion.guest_id}`]}</FieldError>}
+          <label className="mt-4 block text-xs font-semibold text-[#39251f]" htmlFor={`companion-name-${companion.guest_id}`}>Companion’s full name
+            <input id={`companion-name-${companion.guest_id}`} value={companion.guest_name} onChange={(event) => {
+              setRegisteredCompanions((current) => current.map((item) => item.guest_id === companion.guest_id
+                ? { ...item, guest_name: event.target.value }
+                : item));
+              setErrors((current) => ({ ...current, [`companionName-${companion.guest_id}`]: '' }));
+            }} required pattern="[^,]+" maxLength={120} autoComplete="name" className="focus-ring mt-2 h-11 w-full border border-[#e4d6c6] px-3 text-sm font-normal outline-none" />
+          </label>
+          {errors[`companionName-${companion.guest_id}`] && <FieldError>{errors[`companionName-${companion.guest_id}`]}</FieldError>}
+        </fieldset>)}
 
         <div className="mt-5">
           <label className="block text-xs font-semibold text-[#39251f]" htmlFor="mobile-number">Mobile number
@@ -138,30 +186,38 @@ export default function RSVPForm({ invitation, onBack, onSuccess }) {
           {attendance === 'attending' && errors.contact && <FieldError>{errors.contact}</FieldError>}
         </div>
 
-        {allowsAdditionalGuest && attendance === 'attending' && <fieldset className="mt-5">
-          <legend className="mb-3 text-xs font-semibold text-[#39251f]">Will you bring one companion?</legend>
-          <div className="flex gap-3">
-            {[['yes', true], ['no', false]].map(([label, value]) => <label key={label} className={`flex cursor-pointer items-center gap-2 border px-4 py-2.5 text-xs transition ${bringCompanion === value ? 'border-[#800020] bg-[#800020]/[.045] text-[#570b19]' : 'border-[#e8d9c8] text-[#76665c]'}`}>
-              <input type="radio" name="bring-companion" checked={bringCompanion === value} onChange={() => { setBringCompanion(value); setErrors((current) => ({ ...current, bringCompanion: '' })); }} className="accent-[#800020]" />
-              {label === 'yes' ? 'Yes' : 'No'}
-            </label>)}
-          </div>
-          {errors.bringCompanion && <FieldError>{errors.bringCompanion}</FieldError>}
-        </fieldset>}
-
-        {allowsAdditionalGuest && attendance === 'attending' && bringCompanion === true && <div className="mt-5">
-          <label className="block text-xs font-semibold text-[#39251f]" htmlFor="companion-name">Companion’s full name
-            <input id="companion-name" value={companionName} onChange={(event) => { setCompanionName(event.target.value); setErrors((current) => ({ ...current, companionName: '' })); }} required maxLength={120} autoComplete="name" className="focus-ring mt-2 h-11 w-full border border-[#e4d6c6] px-3 text-sm font-normal outline-none" />
+        {attendance === 'attending' && remainingCompanionSlots > 0 && <div className="mt-5">
+          <label className="block text-xs font-semibold text-[#39251f]" htmlFor="new-companion-count">How many additional companions are you bringing?
+            <select id="new-companion-count" value={newCompanionCount} onChange={(event) => {
+              const count = event.target.value === '' ? '' : Number(event.target.value);
+              setNewCompanionCount(count);
+              setNewCompanionNames((current) => Array.from({ length: Number(count) || 0 }, (_, index) => current[index] || ''));
+              setErrors((current) => ({ ...current, newCompanionCount: '' }));
+            }} required className="focus-ring mt-2 h-11 w-full border border-[#e4d6c6] bg-white px-3 text-sm font-normal outline-none">
+              <option value="">Choose a number</option>
+              {Array.from({ length: remainingCompanionSlots + 1 }, (_, count) => <option key={count} value={count}>{count}</option>)}
+            </select>
           </label>
-          <p className="mt-2 text-xs leading-5 text-[#76665c]">Please enter your companion’s complete name so we can reserve their seat.</p>
-          {errors.companionName && <FieldError>{errors.companionName}</FieldError>}
+          {errors.newCompanionCount && <FieldError>{errors.newCompanionCount}</FieldError>}
+          {isFamilyGuest && <p className="mt-2 text-xs leading-5 text-[#76665c]">Family Guest invitations allow up to 3 people total: the named guest and up to 2 companions. {registeredCompanions.length > 0 ? `There ${registeredCompanions.length === 1 ? 'is' : 'are'} already ${registeredCompanions.length} companion${registeredCompanions.length === 1 ? '' : 's'} listed, so you can add up to ${remainingCompanionSlots} more.` : ''}</p>}
         </div>}
+
+        {newCompanionNames.map((name, index) => <div key={index} className="mt-4">
+          <label className="block text-xs font-semibold text-[#39251f]" htmlFor={`new-companion-name-${index}`}>Additional companion {index + 1} full name
+            <input id={`new-companion-name-${index}`} value={name} onChange={(event) => {
+              setNewCompanionNames((current) => current.map((item, itemIndex) => itemIndex === index ? event.target.value : item));
+              setErrors((current) => ({ ...current, [`newCompanionName-${index}`]: '' }));
+            }} required pattern="[^,]+" maxLength={120} autoComplete="name" className="focus-ring mt-2 h-11 w-full border border-[#e4d6c6] px-3 text-sm font-normal outline-none" />
+          </label>
+          {errors[`newCompanionName-${index}`] && <FieldError>{errors[`newCompanionName-${index}`]}</FieldError>}
+        </div>)}
 
         {error && <ErrorMessage>{error}</ErrorMessage>}
         {attendance && <div className="mt-6 border border-[#c5a15b]/45 bg-[#fff8ef] p-4">
           <div className="mb-3 flex items-center gap-2 text-[#800020]"><Check size={16} /><h4 className="font-display text-base text-[#570b19]">Your RSVP</h4></div>
-          <p className="text-sm text-[#76665c]">Guest — <span className="font-medium text-[#39251f]">{verified.primary_guest_name}</span></p>
-          {companionAccepted && <p className="mt-1 text-sm text-[#76665c]">Companion — <span className="font-medium text-[#39251f]">{companionName || 'Name required'}</span></p>}
+          <p className="text-sm text-[#76665c]">Guest — <span className="font-medium text-[#39251f]">{verified.primary_guest_name}</span> <span>({attendance === 'attending' ? 'accepts' : 'declines'})</span></p>
+          {registeredCompanions.map((companion) => <p key={companion.guest_id} className="mt-1 text-sm text-[#76665c]">Companion — <span className="font-medium text-[#39251f]">{companion.guest_name}</span> <span>({companion.attendance_status || 'response required'})</span></p>)}
+          {newCompanionNames.map((name, index) => <p key={index} className="mt-1 text-sm text-[#76665c]">Companion — <span className="font-medium text-[#39251f]">{name || 'Name required'}</span> <span>(accepts)</span></p>)}
           <p className="mt-1 text-sm text-[#76665c]">Total attending — <span className="font-medium text-[#39251f]">{totalAttending}</span></p>
         </div>}
 
